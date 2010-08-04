@@ -6,6 +6,13 @@
 #include <jpeglib.h>
 #include <setjmp.h>
 
-extern uint8_t *readjpeg(uint8_t *data, size_t size);
+typedef struct {
+  int width;
+  int height;
+  uint8_t data[1]; 
+} Image;
+
+extern Image *readjpeg(uint8_t *data, size_t size, Image* prev);
+
 
 #endif /* _READJPEG_H_ */

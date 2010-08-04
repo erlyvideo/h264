@@ -88,7 +88,7 @@ Encoder encoder_init(Encoder state)
   
   encoder_set_params(&state->param);
   
-  x264_param_default_preset(&state->param, "x264_param_apply_preset", "zerolatency");
+  x264_param_default_preset(&state->param, "ultrafast", "zerolatency");
   state->param.i_width = width;
   state->param.i_height = height;
   

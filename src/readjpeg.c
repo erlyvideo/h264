@@ -30,9 +30,9 @@ my_error_exit (j_common_ptr cinfo)
 
 
 
-uint8_t *readjpeg(uint8_t *data, size_t size)
+Image *readjpeg(uint8_t *data, size_t size, Image *prev)
 {
-  
+  Image *image;
   /* This struct contains the JPEG decompression parameters and pointers to
    * working space (which is allocated as needed by the JPEG library).
    */
@@ -108,7 +108,16 @@ uint8_t *readjpeg(uint8_t *data, size_t size)
    */ 
   /* JSAMPLEs per row in output buffer */
   row_stride = cinfo.output_width * cinfo.output_components;
-  rgb = malloc(cinfo.output_width * cinfo.output_height * cinfo.output_components);
+  if(!prev || prev->width*prev->height < cinfo.output_width*cinfo.output_height) {
+    if(prev) free(prev);
+    image = malloc(sizeof(Image) + cinfo.output_width * cinfo.output_height * cinfo.output_components);
+    image->width = cinfo.output_width;
+    image->height = cinfo.output_height;
+  } else {
+    image = prev;
+  }
+  
+  rgb = image->data;
   ptr = rgb;
   /* Make a one-row-high sample array that will go away when done with image */
   buffer = (*cinfo.mem->alloc_sarray)
@@ -158,5 +167,5 @@ uint8_t *readjpeg(uint8_t *data, size_t size)
   // rgb_yuv(rgb, yuv, cinfo.output_width, cinfo.output_height);
   // free(rgb);
   // return yuv;
-  return rgb;
+  return image;
 }
