@@ -1,5 +1,6 @@
 #include "encoder.h"
 #include <stdio.h>
+#include <string.h>
 
 Encoder encoder_new() 
 {
@@ -80,6 +81,9 @@ Encoder encoder_init(Encoder state)
   state->param.i_height = height;
   state->param.i_sps_id = 1;
   
+  state->width = width;
+  state->height = height;
+  
   encoder_set_params(&state->param);
   printf("Hi1\n");
   
@@ -107,6 +111,49 @@ void encoder_close(Encoder state)
 }
 
 
+void encoder_consume(Encoder state, uint8_t *yuv)
+{
+  uint32_t half = state->width >> 1;
+  state->yuv = yuv;
+
+	state->picture.img.plane[0] = yuv;
+	state->picture.img.i_stride[0] = state->width;
+	state->picture.img.plane[1] = yuv + state->width;
+	state->picture.img.i_stride[1] = state->width / 2;
+	state->picture.img.plane[2] = yuv + state->width + half;
+	state->picture.img.i_stride[2] = state->width / 2;
+  
+}
 
 
+extern Data encoder_encode(Encoder state)
+{
+  x264_picture_t	output;
+	x264_nal_t		*nals;
+	int				count, i;
+  uint8_t   *out, *ptr;
+  size_t    size;
+  Data      data;
 
+	state->picture.i_pts = (int64_t)state->frame * state->param.i_fps_den;
+	state->picture.i_type = X264_TYPE_AUTO;
+	state->picture.i_qpplus1 = 0;
+	if (x264_encoder_encode(state->encoder, &nals, &count, &state->picture, &output) < 0) {
+    return;
+  }
+
+  out = NULL;
+  ptr = NULL;
+	for (i = 0; i < count; i++) {
+    size += nals[i].i_payload;
+    out = realloc(out, size);
+    ptr = out + size - nals[i].i_payload;
+    memcpy(ptr, nals[i].p_payload, nals[i].i_payload);
+	}
+
+	state->frame++;
+	
+  data.data = out;
+  data.size = size;
+  return data;
+}
