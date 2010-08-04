@@ -15,7 +15,7 @@ on_load() ->
   load_nif(erlang:system_info(otp_release) >= "R14A").
   
 load_nif(true) ->
-  Load = erlang:load_nif("ebin/ems_video", 0),
+  Load = erlang:load_nif(code:lib_dir(h264,ebin) ++ "/ems_video", 0),
   io:format("Load ems_video: ~p~n", [Load]),
   ok;
 
