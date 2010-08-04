@@ -1,5 +1,7 @@
-
+#include <stdint.h>
+#include <stdio.h>
 #include "encoder.h"
+#include "readjpeg.h"
 
 int main(void)
 {

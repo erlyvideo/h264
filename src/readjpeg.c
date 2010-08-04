@@ -47,7 +47,7 @@ uint8_t *readjpeg(char *filename)
   JSAMPARRAY buffer;		/* Output row buffer */
   int row_stride;		/* physical row width in output buffer */
   
-  uint8_t *output, *ptr, *yuv;
+  uint8_t *rgb, *ptr, *yuv;
 
   /* In this example we want to open the input file before doing anything else,
    * so that the setjmp() error recovery below can assume the file is open.
@@ -90,6 +90,10 @@ uint8_t *readjpeg(char *filename)
    * See libjpeg.txt for more info.
    */
 
+   // printf( "JPEG File Information: \n" );
+   // printf( "Image width and height: %d pixels and %d pixels.\n", cinfo.image_width, cinfo.image_height );
+   // printf( "Color components per pixel: %d.\n", cinfo.num_components );
+   // printf( "Color space: %d.\n", cinfo.jpeg_color_space );
   /* Step 4: set parameters for decompression */
 
   /* In this example, we don't need to change any of the defaults set by
@@ -111,9 +115,9 @@ uint8_t *readjpeg(char *filename)
    */ 
   /* JSAMPLEs per row in output buffer */
   row_stride = cinfo.output_width * cinfo.output_components;
-  output = calloc(cinfo.output_width * cinfo.output_height, cinfo.output_components);
-  yuv = calloc(cinfo.output_width * cinfo.output_height, cinfo.output_components);
-  ptr = output;
+  rgb = malloc(cinfo.output_width * cinfo.output_height * cinfo.output_components);
+  yuv = malloc(cinfo.output_width * cinfo.output_height * cinfo.output_components);
+  ptr = rgb;
   /* Make a one-row-high sample array that will go away when done with image */
   buffer = (*cinfo.mem->alloc_sarray)
 		((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
@@ -131,11 +135,11 @@ uint8_t *readjpeg(char *filename)
      */
     (void) jpeg_read_scanlines(&cinfo, buffer, 1);
     /* Assume put_scanline_someplace wants a pointer and sample count. */
-    memcpy(ptr, buffer[0], row_stride);
+    memcpy(ptr, buffer, row_stride);
     ptr += row_stride;
     // put_scanline_someplace(buffer[0], row_stride);
   }
-
+  
   /* Step 7: Finish decompression */
 
   (void) jpeg_finish_decompress(&cinfo);
@@ -160,7 +164,7 @@ uint8_t *readjpeg(char *filename)
    */
 
   /* And we're done! */
-  rgb_yuv(output, yuv, cinfo.output_width, cinfo.output_height);
-  free(output);
+  rgb_yuv(rgb, yuv, cinfo.output_width, cinfo.output_height);
+  free(rgb);
   return yuv;
 }
