@@ -88,6 +88,10 @@ Encoder encoder_init(Encoder state)
   
   encoder_set_params(&state->param);
   
+  x264_param_default_preset(&state->param, "x264_param_apply_preset", "zerolatency");
+  state->param.i_width = width;
+  state->param.i_height = height;
+  
   state->encoder = x264_encoder_open(&state->param);
   
   if (x264_picture_alloc(&state->picture, X264_CSP_I420, width, height) < 0) {
@@ -172,7 +176,6 @@ Data encoder_encode(Encoder state, uint8_t *rgb)
 
 	for (i = 0; i < count; i++) {
     data = concat_data(data, nals[i].p_payload, nals[i].i_payload);
-    printf("NAL: %d\n", nals[i].i_type);
 	}
 
 	state->frame++;

@@ -30,7 +30,7 @@ my_error_exit (j_common_ptr cinfo)
 
 
 
-uint8_t *readjpeg(char *filename)
+uint8_t *readjpeg(uint8_t *data, size_t size)
 {
   
   /* This struct contains the JPEG decompression parameters and pointers to
@@ -43,7 +43,6 @@ uint8_t *readjpeg(char *filename)
    */
   struct my_error_mgr jerr;
   /* More stuff */
-  FILE * infile;		/* source file */
   JSAMPARRAY buffer;		/* Output row buffer */
   int row_stride;		/* physical row width in output buffer */
   
@@ -54,11 +53,6 @@ uint8_t *readjpeg(char *filename)
    * VERY IMPORTANT: use "b" option to fopen() if you are on a machine that
    * requires it in order to read binary files.
    */
-
-  if ((infile = fopen(filename, "rb")) == NULL) {
-    fprintf(stderr, "can't open %s\n", filename);
-    return 0;
-  }
 
   /* Step 1: allocate and initialize JPEG decompression object */
 
@@ -71,7 +65,6 @@ uint8_t *readjpeg(char *filename)
      * We need to clean up the JPEG object, close the input file, and return.
      */
     jpeg_destroy_decompress(&cinfo);
-    fclose(infile);
     return 0;
   }
   /* Now we can initialize the JPEG decompression object. */
@@ -79,7 +72,7 @@ uint8_t *readjpeg(char *filename)
 
   /* Step 2: specify data source (eg, a file) */
 
-  jpeg_stdio_src(&cinfo, infile);
+  jpeg_mem_src(&cinfo, data, size);
 
   /* Step 3: read file parameters with jpeg_read_header() */
 
@@ -156,8 +149,6 @@ uint8_t *readjpeg(char *filename)
    * so as to simplify the setjmp error logic above.  (Actually, I don't
    * think that jpeg_destroy can do an error exit, but why assume anything...)
    */
-  fclose(infile);
-
   /* At this point you may want to check to see whether any corrupt-data
    * warnings occurred (test whether jerr.pub.num_warnings is nonzero).
    */
