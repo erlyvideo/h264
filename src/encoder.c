@@ -122,7 +122,6 @@ Data encoder_config(Encoder state)
   Data data = {0, 0};
   
   x264_encoder_headers(state->encoder, &nals, &count);
-  printf("Got %d headers\n", count);
   for(i = 0; i < count; i++) {
     data = concat_data(data, nals[i].p_payload, nals[i].i_payload);
     printf("NAL: %d\n", nals[i].i_type);
@@ -154,16 +153,15 @@ Data encoder_encode(Encoder state, uint8_t *rgb)
 
   state->picture.img.plane[0] = yuv;
   state->picture.img.i_stride[0] = state->width;
+  
   state->picture.img.plane[1] = yuv + plane;
-  state->picture.img.i_stride[1] = state->width / 2;
+  state->picture.img.i_stride[1] = state->width;
+  
   state->picture.img.plane[2] = yuv + 2*plane;
-  state->picture.img.i_stride[2] = state->width / 2;
+  state->picture.img.i_stride[2] = state->width;
 
-  state->picture.img.i_stride[1] = 0;
-  state->picture.img.i_stride[2] = 0;
-
-  state->picture.img.i_plane = 3;
-  state->picture.img.i_csp = X264_CSP_I420;
+  // state->picture.img.i_plane = 3;
+  // state->picture.img.i_csp = X264_CSP_I420;
   sws_scale(state->convertCtx, src, srcstride, 0, state->height, state->picture.img.plane, state->picture.img.i_stride);
 
   // memset((void *)state->picture.img.plane[1], 127, state->width * state->height / 2);
