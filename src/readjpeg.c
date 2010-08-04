@@ -134,7 +134,7 @@ uint8_t *readjpeg(char *filename)
      */
     (void) jpeg_read_scanlines(&cinfo, buffer, 1);
     /* Assume put_scanline_someplace wants a pointer and sample count. */
-    memcpy(ptr, buffer, row_stride);
+    memcpy(ptr, buffer[0], row_stride);
     ptr += row_stride;
     // put_scanline_someplace(buffer[0], row_stride);
   }

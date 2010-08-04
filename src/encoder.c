@@ -160,12 +160,7 @@ Data encoder_encode(Encoder state, uint8_t *rgb)
   state->picture.img.plane[2] = yuv + 2*plane;
   state->picture.img.i_stride[2] = state->width;
 
-  // state->picture.img.i_plane = 3;
-  // state->picture.img.i_csp = X264_CSP_I420;
   sws_scale(state->convertCtx, src, srcstride, 0, state->height, state->picture.img.plane, state->picture.img.i_stride);
-
-  // memset((void *)state->picture.img.plane[1], 127, state->width * state->height / 2);
-  // memset((void *)state->picture.img.plane[2], 127, state->width * state->height / 2);
 
 
 	state->picture.i_pts = (int64_t)state->frame * state->param.i_fps_den;
