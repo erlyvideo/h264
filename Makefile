@@ -1,4 +1,15 @@
-all: test
+NIFDIR := `erl -eval 'io:format("~s", [code:lib_dir(erts,include)])' -s init stop -noshell| sed s'/erlang\/lib\//erlang\//'`
+NIF_FLAGS := `ruby -rrbconfig -e 'puts Config::CONFIG["LDSHARED"]'` -O3 -fPIC -fno-common -Wall
+
+all: test ebin/ems_video.so compile
+
+compile:
+	ERL_LIBS=../erlyvideo/deps erl -make
+
+ebin/ems_video.so: src/ems_video.c src/ems_jpeg.c src/ems_x264.c test
+	gcc -c -o ebin/ems_video.o src/ems_video.c -I $(NIFDIR)
+	gcc -shared -undefined dynamic_lookup -o $@ ebin/encoder.o ebin/readjpeg.o ebin/ems_video.o -g -ljpeg -lx264 -lswscale -lavutil
+
 
 
 test: ebin/test.o ebin/encoder.o ebin/readjpeg.o

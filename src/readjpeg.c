@@ -28,7 +28,31 @@ my_error_exit (j_common_ptr cinfo)
   longjmp(myerr->setjmp_buffer, 1);
 }
 
+Image readjpeg_info(uint8_t *data, size_t size)
+{
+  Image image = {0, 0, 0};
+  struct jpeg_decompress_struct cinfo;
+  struct my_error_mgr jerr;
 
+  cinfo.err = jpeg_std_error(&jerr.pub);
+  jerr.pub.error_exit = my_error_exit;
+  /* Establish the setjmp return context for my_error_exit to use. */
+  if (setjmp(jerr.setjmp_buffer)) {
+    /* If we get here, the JPEG code has signaled an error.
+     * We need to clean up the JPEG object, close the input file, and return.
+     */
+    jpeg_destroy_decompress(&cinfo);
+    return image;
+  }
+
+  jpeg_create_decompress(&cinfo);
+  jpeg_mem_src(&cinfo, data, size);
+  jpeg_read_header(&cinfo, TRUE);
+  image.width = cinfo.image_width;
+  image.height = cinfo.image_height;
+  jpeg_destroy_decompress(&cinfo);
+  return image;
+}
 
 Image *readjpeg(uint8_t *data, size_t size, Image *prev)
 {
@@ -109,10 +133,10 @@ Image *readjpeg(uint8_t *data, size_t size, Image *prev)
   /* JSAMPLEs per row in output buffer */
   row_stride = cinfo.output_width * cinfo.output_components;
   if(!prev || prev->width*prev->height < cinfo.output_width*cinfo.output_height) {
-    if(prev) free(prev);
     image = malloc(sizeof(Image) + cinfo.output_width * cinfo.output_height * cinfo.output_components);
     image->width = cinfo.output_width;
     image->height = cinfo.output_height;
+    image->data = image + sizeof(Image);
   } else {
     image = prev;
   }

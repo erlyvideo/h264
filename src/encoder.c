@@ -70,6 +70,8 @@ Encoder encoder_init(uint32_t width, uint32_t height, Encoder state)
 {
   int in_w, in_h, out_w, out_h;
 
+  printf("H1\n");
+
   if(!state) {
     state = encoder_new();
   }
