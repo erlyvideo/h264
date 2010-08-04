@@ -16,7 +16,7 @@ int main(void)
   
   out = fopen("out.264", "wb");
   
-  for(i = 1; i < 100; i++) {
+  for(i = 1; i < 10000; i++) {
     Data h264;
     uint8_t *raw;
     FILE *jpg;
