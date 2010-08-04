@@ -69,6 +69,8 @@ static encoder_set_params(x264_param_t *param)
 Encoder encoder_init(Encoder state)
 {
   uint32_t width, height;
+  int in_w, in_h, out_w, out_h;
+
   if(!state) {
     state = encoder_new();
   }
@@ -85,15 +87,17 @@ Encoder encoder_init(Encoder state)
   state->height = height;
   
   encoder_set_params(&state->param);
-  printf("Hi1\n");
   
   state->encoder = x264_encoder_open(&state->param);
-  printf("Hi2\n");
   
-  x264_picture_clean(&state->picture);
   if (x264_picture_alloc(&state->picture, X264_CSP_I420, width, height) < 0) {
     printf("Couldn't allocate picture for %ux%u\n", width, height);
 	}
+	
+  
+  in_w = out_w = width;
+  in_h = out_h = height;
+  state->convertCtx = sws_getContext(in_w, in_h, PIX_FMT_RGB24, out_w, out_h, PIX_FMT_YUV420P, SWS_FAST_BILINEAR, NULL, NULL, NULL);
 	
   return state;
 }
@@ -111,29 +115,60 @@ void encoder_close(Encoder state)
 }
 
 
-void encoder_consume(Encoder state, uint8_t *yuv)
+Data encoder_config(Encoder state)
 {
-  uint32_t half = state->width >> 1;
-  state->yuv = yuv;
-
-	state->picture.img.plane[0] = yuv;
-	state->picture.img.i_stride[0] = state->width;
-	state->picture.img.plane[1] = yuv + state->width;
-	state->picture.img.i_stride[1] = state->width / 2;
-	state->picture.img.plane[2] = yuv + state->width + half;
-	state->picture.img.i_stride[2] = state->width / 2;
+  x264_nal_t* nals;
+  int count, i;
+  Data data = {0, 0};
   
+  x264_encoder_headers(state->encoder, &nals, &count);
+  printf("Got %d headers\n", count);
+  for(i = 0; i < count; i++) {
+    data = concat_data(data, nals[i].p_payload, nals[i].i_payload);
+    printf("NAL: %d\n", nals[i].i_type);
+  }
+  return data;
 }
 
 
-extern Data encoder_encode(Encoder state)
+Data concat_data(Data data, uint8_t *buf, size_t size)
+{
+  data.data = realloc(data.data, data.size + size);
+  memmove(data.data + data.size, buf, size);
+  data.size += size;
+  return data;
+}
+
+Data encoder_encode(Encoder state, uint8_t *rgb)
 {
   x264_picture_t	output;
-	x264_nal_t		*nals;
 	int				count, i;
-  uint8_t   *out, *ptr;
-  size_t    size;
-  Data      data;
+  Data      data = {0, 0};
+  x264_nal_t* nals;
+  uint8_t *src[3] = {rgb, NULL, NULL};
+  int srcstride[3] = {state->width*3, 0, 0};
+  
+  int plane = state->height*state->width;
+  uint8_t *yuv = malloc(plane*3);
+  memset(yuv, 127, plane*3);
+
+  state->picture.img.plane[0] = yuv;
+  state->picture.img.i_stride[0] = state->width;
+  state->picture.img.plane[1] = yuv + plane;
+  state->picture.img.i_stride[1] = state->width / 2;
+  state->picture.img.plane[2] = yuv + 2*plane;
+  state->picture.img.i_stride[2] = state->width / 2;
+
+  state->picture.img.i_stride[1] = 0;
+  state->picture.img.i_stride[2] = 0;
+
+  state->picture.img.i_plane = 3;
+  state->picture.img.i_csp = X264_CSP_I420;
+  sws_scale(state->convertCtx, src, srcstride, 0, state->height, state->picture.img.plane, state->picture.img.i_stride);
+
+  // memset((void *)state->picture.img.plane[1], 127, state->width * state->height / 2);
+  // memset((void *)state->picture.img.plane[2], 127, state->width * state->height / 2);
+
 
 	state->picture.i_pts = (int64_t)state->frame * state->param.i_fps_den;
 	state->picture.i_type = X264_TYPE_AUTO;
@@ -142,18 +177,13 @@ extern Data encoder_encode(Encoder state)
     return;
   }
 
-  out = NULL;
-  ptr = NULL;
 	for (i = 0; i < count; i++) {
-    size += nals[i].i_payload;
-    out = realloc(out, size);
-    ptr = out + size - nals[i].i_payload;
-    memcpy(ptr, nals[i].p_payload, nals[i].i_payload);
+    data = concat_data(data, nals[i].p_payload, nals[i].i_payload);
+    printf("NAL: %d\n", nals[i].i_type);
 	}
 
 	state->frame++;
 	
-  data.data = out;
-  data.size = size;
+  free(yuv);
   return data;
 }

@@ -1,3 +1,4 @@
+
 #include <stdint.h>
 #include <stdio.h>
 #include "encoder.h"
@@ -10,20 +11,20 @@ int main(void)
   int i;
   char filename[256];
   FILE *out;
-  Data h264;
   
   encoder = encoder_init(NULL);
   
   out = fopen("out.264", "wb");
   
   for(i = 1; i < 100; i++) {
+    Data h264;
     uint8_t *raw;
     sprintf(filename, "fixtures/images/images%05d.jpg", i);
     raw = readjpeg(filename);
-    encoder_consume(encoder, raw);
-    h264 = encoder_encode(encoder);
+    
+    h264 = encoder_encode(encoder, raw);
     fwrite(h264.data, h264.size, 1, out);
-    free(h264.data);
-    free(raw);
+    // free(h264.data);
+    // free(raw);
   }
 }

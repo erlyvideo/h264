@@ -2,7 +2,7 @@ all: test
 
 
 test: ebin/test.o ebin/encoder.o ebin/readjpeg.o ebin/rgb_yuv.o
-	gcc ebin/test.o ebin/encoder.o ebin/readjpeg.o ebin/rgb_yuv.o -g -ljpeg -lx264 -o test
+	gcc ebin/test.o ebin/encoder.o ebin/readjpeg.o ebin/rgb_yuv.o -g -ljpeg -lx264 -lswscale -lavutil -o test
 
 
 ebin/encoder.o: src/encoder.c

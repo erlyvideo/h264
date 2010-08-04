@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <x264.h>
 
+#include <libswscale/swscale.h>
+
 
 typedef struct {
   x264_param_t	param;
@@ -17,6 +19,7 @@ typedef struct {
   uint8_t     *yuv;
   uint32_t    width;
   uint32_t    height;
+  struct SwsContext* convertCtx;
 } ems_encoder;
 
 typedef struct {
@@ -24,6 +27,7 @@ typedef struct {
   size_t  size;
 } Data;
   
+extern Data concat_data(Data, uint8_t *buf, size_t size);
 
 typedef ems_encoder *Encoder;
 
@@ -32,8 +36,8 @@ Encoder encoder_init(Encoder state);
 
 extern void encoder_free(Encoder state);
 extern void encoder_close(Encoder state);
+extern Data encoder_config(Encoder state);
 
-extern void encoder_consume(Encoder state, uint8_t *yuv);
-extern Data encoder_encode(Encoder state);
+extern Data encoder_encode(Encoder state, uint8_t *rgb);
 
 #endif /* _ENCODER_H_ */

@@ -116,7 +116,6 @@ uint8_t *readjpeg(char *filename)
   /* JSAMPLEs per row in output buffer */
   row_stride = cinfo.output_width * cinfo.output_components;
   rgb = malloc(cinfo.output_width * cinfo.output_height * cinfo.output_components);
-  yuv = malloc(cinfo.output_width * cinfo.output_height * cinfo.output_components);
   ptr = rgb;
   /* Make a one-row-high sample array that will go away when done with image */
   buffer = (*cinfo.mem->alloc_sarray)
@@ -164,7 +163,9 @@ uint8_t *readjpeg(char *filename)
    */
 
   /* And we're done! */
-  rgb_yuv(rgb, yuv, cinfo.output_width, cinfo.output_height);
-  free(rgb);
-  return yuv;
+  // yuv = malloc(cinfo.output_width * cinfo.output_height * cinfo.output_components);
+  // rgb_yuv(rgb, yuv, cinfo.output_width, cinfo.output_height);
+  // free(rgb);
+  // return yuv;
+  return rgb;
 }

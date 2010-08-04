@@ -60,7 +60,8 @@ int srcFrameWidth, int srcFrameHeight)
 
 void rgb_yuv(const unsigned char * rgb, unsigned char * yuv, int width, int height)
 {
-  RGBtoYUV420PSameSize(rgb, yuv, 3, 0, width, height);
+  // RGBtoYUV420PSameSize(rgb, yuv, 3, 0, width, height);
+  
 }
 
 
