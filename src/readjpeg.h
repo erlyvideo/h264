@@ -7,8 +7,8 @@
 #include <setjmp.h>
 
 typedef struct {
-  int width;
-  int height;
+  uint32_t width;
+  uint32_t height;
   uint8_t data[1]; 
 } Image;
 

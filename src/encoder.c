@@ -66,17 +66,13 @@ static encoder_set_params(x264_param_t *param)
   param->pf_log = encoder_log;
 }
 
-Encoder encoder_init(Encoder state)
+Encoder encoder_init(uint32_t width, uint32_t height, Encoder state)
 {
-  uint32_t width, height;
   int in_w, in_h, out_w, out_h;
 
   if(!state) {
     state = encoder_new();
   }
-  
-  width = 848;
-  height = 480;
   
   x264_param_default(&state->param);
   state->param.i_width = width;
@@ -88,7 +84,7 @@ Encoder encoder_init(Encoder state)
   
   encoder_set_params(&state->param);
   
-  x264_param_default_preset(&state->param, "ultrafast", "zerolatency");
+  x264_param_default_preset(&state->param, "faster", "zerolatency");
   state->param.i_width = width;
   state->param.i_height = height;
   

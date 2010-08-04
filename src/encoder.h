@@ -32,7 +32,7 @@ extern Data concat_data(Data, uint8_t *buf, size_t size);
 typedef ems_encoder *Encoder;
 
 extern Encoder encoder_new();
-Encoder encoder_init(Encoder state);
+Encoder encoder_init(uint32_t width, uint32_t height, Encoder state);
 
 extern void encoder_free(Encoder state);
 extern void encoder_close(Encoder state);
