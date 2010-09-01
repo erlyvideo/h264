@@ -44,7 +44,7 @@ static encoder_set_params(x264_param_t *param)
 //	"vbv-maxrate=512",
 	param->rc.i_vbv_max_bitrate = 512;
 //	"vbv-bufsize=9000",
-	param->rc.i_vbv_buffer_size = 9000;
+	param->rc.i_vbv_buffer_size = 900;
 //	"ratetol=1000.0",
 	param->rc.f_rate_tolerance = 1000.0;
 //	"scenecut=60"
@@ -69,8 +69,6 @@ static encoder_set_params(x264_param_t *param)
 Encoder encoder_init(uint32_t width, uint32_t height, Encoder state)
 {
   int in_w, in_h, out_w, out_h;
-
-  printf("H1\n");
 
   if(!state) {
     state = encoder_new();
@@ -126,7 +124,6 @@ Data encoder_config(Encoder state)
   x264_encoder_headers(state->encoder, &nals, &count);
   for(i = 0; i < count; i++) {
     data = concat_data(data, nals[i].p_payload, nals[i].i_payload);
-    printf("NAL: %d\n", nals[i].i_type);
   }
   return data;
 }
@@ -161,17 +158,16 @@ Data encoder_encode(Encoder state, uint8_t *rgb)
   
   state->picture.img.plane[2] = yuv + 2*plane;
   state->picture.img.i_stride[2] = state->width;
-
+  
   sws_scale(state->convertCtx, src, srcstride, 0, state->height, state->picture.img.plane, state->picture.img.i_stride);
-
-
+  
 	state->picture.i_pts = (int64_t)state->frame * state->param.i_fps_den;
 	state->picture.i_type = X264_TYPE_AUTO;
 	state->picture.i_qpplus1 = 0;
 	if (x264_encoder_encode(state->encoder, &nals, &count, &state->picture, &output) < 0) {
     return;
   }
-
+  
 	for (i = 0; i < count; i++) {
     data = concat_data(data, nals[i].p_payload, nals[i].i_payload);
 	}

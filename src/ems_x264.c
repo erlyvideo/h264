@@ -48,6 +48,7 @@ rgb_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   
   if(!x264->encoder) {
     x264->encoder = encoder_init(image->width, image->height, NULL);
+    printf("Initializing encoder %dx%d\r\n", image->width, image->height);
   }
   
   h264 = encoder_encode(x264->encoder, image->data);
