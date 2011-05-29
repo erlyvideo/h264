@@ -55,8 +55,8 @@ static encoder_set_params(x264_param_t *param)
 	
   param->i_csp = X264_CSP_I420;
   param->i_level_idc = -1;
-  param->i_fps_num = 24000;
-  param->i_fps_den = 1001;
+  param->i_fps_num = 10;
+  param->i_fps_den = 1;
   
   param->i_slice_max_size = 0;
   param->i_slice_max_mbs = 0;
@@ -87,6 +87,19 @@ Encoder encoder_init(uint32_t width, uint32_t height, Encoder state)
   x264_param_default_preset(&state->param, "faster", "zerolatency");
   state->param.i_width = width;
   state->param.i_height = height;
+  state->param.i_threads = 4;
+  state->param.b_sliced_threads = 1;
+  state->param.i_frame_reference = 1;
+  state->param.i_keyint_max = 20;
+  state->param.i_bframe = 0;
+  state->param.rc.i_vbv_buffer_size = 10;
+  //	"ratetol=1000.0",
+  state->param.b_annexb = 0;
+  // state->param.
+  // state->param.
+  // state->param.
+  // state->param.
+  // state->param.
   
   state->encoder = x264_encoder_open(&state->param);
   

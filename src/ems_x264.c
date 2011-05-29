@@ -4,6 +4,9 @@ ErlNifResourceType* x264_resource;
 
 typedef struct {
   Encoder encoder;
+  uint32_t    bitrate;
+  char        preset[256];
+  char        tune[256]; 
 } X264;
 
 
@@ -23,8 +26,49 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   X264 *x264;
   
+  ERL_NIF_TERM opt, opts, *kv, decoder_config;
+  int arity;
+  
+  unsigned int width, height, fps;
+  int bitrate = -1;
+  char preset[1024], tune[1024];
+  
+  
+  strcpy(preset, "faster");
+  strcpy(tune, "stillimage");
+  
+  if (argc < 1 || !enif_is_list(env, argv[0])) {
+    return enif_make_badarg(env);
+  }
+  
+  fps = 25;
+  
   x264 = (X264 *)enif_alloc_resource(x264_resource, sizeof(X264));
   memset(x264, 0, sizeof(X264));
+  
+  
+  opts = argv[0];
+  while(enif_get_list_cell(env, opts, &opt, &opts)) {
+      if(enif_is_tuple(env, opt)) {
+          enif_get_tuple(env, opt, &arity, (const ERL_NIF_TERM **)&kv);
+          if(arity < 2) continue;
+          if(!enif_compare(kv[0], enif_make_atom(env, "bitrate"))) {
+              enif_get_int(env, kv[1], &x264->bitrate); 
+          }
+          if(!enif_compare(kv[0], enif_make_atom(env, "preset"))) {
+              if(enif_is_list(env, kv[1])) {
+                  enif_get_string(env, kv[1], x264->preset, sizeof(x264->preset), ERL_NIF_LATIN1);
+              }
+          }
+          if(!enif_compare(kv[0], enif_make_atom(env, "tune"))) {
+              if(enif_is_list(env, kv[1])) {
+                  enif_get_string(env, kv[1], x264->tune, sizeof(x264->tune), ERL_NIF_LATIN1);
+              }
+          }
+      }
+  }
+  
+  
   return enif_make_resource(env, x264);
 }
 

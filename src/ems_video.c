@@ -4,6 +4,7 @@
 #include "erl_nif.h"
 
 #define HAS_X264 1
+#define HAS_MPEG2 1
 
 #ifdef HAS_XVID
 #include "ems_xvid.c"
@@ -12,6 +13,10 @@
 #ifdef HAS_X264
 #include "ems_x264.c"
 #endif /* HAS_X264 */
+
+#ifdef HAS_MPEG2
+#include "ems_mpeg2.c"
+#endif /* HAS_MPEG2 */
 
 #include "ems_jpeg.c"
 
@@ -27,6 +32,12 @@ load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
   #ifdef HAS_X264
   if(!x264_resource) {
     x264_resource = enif_open_resource_type(env, NULL, "x264_resource", x264_destructor, ERL_NIF_RT_CREATE, NULL);
+  }
+  #endif
+
+  #ifdef HAS_MPEG2
+  if(!mpeg2_resource) {
+    mpeg2_resource = enif_open_resource_type(env, NULL, "mpeg2_resource", mpeg2_destructor, ERL_NIF_RT_CREATE, NULL);
   }
   #endif
 
@@ -61,9 +72,13 @@ static ErlNifFunc ems_video_funcs[] =
     {"mpeg4_raw", 2, mpeg4_raw},
 #endif /* HAS_XVID */
 #ifdef HAS_X264
-    {"init_x264", 0, init_x264},
+    {"init_x264", 1, init_x264},
     {"rgb_x264", 2, rgb_x264},
-#endif /* HAS_XVID */
+#endif /* HAS_X264 */
+#ifdef HAS_MPEG2
+    {"init_mpeg2", 0, init_mpeg2},
+    {"real_mpeg2_raw", 2, mpeg2_raw},
+#endif /* HAS_MPEG2 */
     {"jpeg_rgb", 1, jpeg_rgb}
 };
 

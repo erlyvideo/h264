@@ -1,31 +1,64 @@
-#!/usr/bin/env escript
+#!/usr/bin/env ERL_LIBS=../erlyvideo/apps:.. escript
+
+-include_lib("erlmedia/include/video_frame.hrl").
+-include_lib("mpegts/include/mpegts.hrl").
+
 
 main([]) ->
   code:add_path("ebin"),
-  code:add_path(".."),
-  code:add_path("../erlyvideo/ebin"),
-  code:add_pathz("../erlyvideo/deps/erlmedia/ebin"),
-  code:add_pathz("../erlyvideo/deps/amf/ebin"),
+  application:start(log4erl),
+  log4erl:error_logger_handler(), %% to get all error_logger
+  log4erl:add_logger(default_logger),
+  log4erl:add_console_appender(default_logger, app1, {info, "%l%n"}),
+  
 
-  X264 = ems_video:init_x264(),
+  X264 = ems_video:init_x264([]),
   {ok, Out} = file:open("out.264", [binary, write]),
-  convert(X264, Out, 1).
-  
-convert(X264, Out, N) when N < 10 ->
-  Path = io_lib:format("fixtures/images/images0000~p.jpg", [N]),
-  dump(X264, Out, Path, N);
 
-convert(X264, Out, N) when N < 100 ->
-  Path = io_lib:format("fixtures/images/images000~p.jpg", [N]),
-  dump(X264, Out, Path, N);
-
-convert(X264, Out, N) ->
-  file:close(Out),
-  ok.
+  LibMPEG2 = ems_video:init_mpeg2(),
+  Path = "zvezda.ts",
   
-dump(X264, Out, Path, N) ->  
-  {ok, JPEG} = file:read_file(lists:flatten(Path)),
-  {ok, RGB} = ems_video:jpeg_rgb(JPEG),
-  {ok, H264} = ems_video:rgb_x264(X264, RGB),
-  file:write(Out, H264),
-  convert(X264, Out, N+1).
+  {ok, File} = file:open(Path, [read,binary,{read_ahead,131072},raw]),
+  {ok, Reader} = mpegts_reader:init([[{program,104}]]),
+  dump_frames(File, Reader, LibMPEG2, X264, undefined).
+  
+
+dump_frames(File, Reader, LibMPEG2, X264, Writer) ->
+  case file:read(File, 188) of
+    {ok, <<16#47, Bin/binary>>} ->
+      case mpegts_reader:decode_ts(Bin, Reader) of
+        {ok, Reader1, undefined} ->
+          dump_frames(File, Reader1, LibMPEG2, X264, Writer);
+        {ok, Reader1, PES} ->
+          {Reader2, YUV} = decode_pes(Reader1, PES, LibMPEG2),
+          dump_frames(File, Reader2, LibMPEG2, X264, Writer)
+      end;
+    eof -> ok
+  end.            
+  
+decode_pes(Reader, PES, LibMPEG2) ->
+  {ok, Reader1, Frames} = mpegts_reader:decode_pes(Reader, PES),
+  case Frames of
+    [#video_frame{codec = mpeg2video, body = Body, dts = DTS}] ->
+      case get(frame_count) of
+        undefined -> put(frame_count, 0);
+        _ -> ok
+      end,
+      Count = get(frame_count),
+      if
+        Count > 20 -> 
+          io:format("Mpeg2: ~p ~p ~p~n", [round(DTS), size(Body), erlang:crc32(Body)]),
+          ems_video:mpeg2_raw(LibMPEG2, Body);
+        true -> ok
+      end,
+      put(frame_count, Count + 1),
+      
+      % case ems_video:mpeg2_raw(LibMPEG2, Body) of
+      %   {ok, YUV} -> io:format("YUV: ~p~n", [size(YUV)]);
+      %   _ -> ok
+      % end,
+      ok;
+    _ -> ok
+  end,  
+  % io:format("Read ~p MPEG2 frames~n", [length(Frames)]),
+  {Reader1, undefined}.
