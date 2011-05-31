@@ -9,7 +9,7 @@ main([]) ->
   application:start(log4erl),
   log4erl:error_logger_handler(), %% to get all error_logger
   log4erl:add_logger(default_logger),
-  log4erl:add_console_appender(default_logger, app1, {info, "%l%n"}),
+  log4erl:add_console_appender(default_logger, app1, {debug, "%l%n"}),
   
 
   X264 = ems_video:init_x264([]),
@@ -40,18 +40,8 @@ decode_pes(Reader, PES, LibMPEG2) ->
   {ok, Reader1, Frames} = mpegts_reader:decode_pes(Reader, PES),
   case Frames of
     [#video_frame{codec = mpeg2video, body = Body, dts = DTS}] ->
-      case get(frame_count) of
-        undefined -> put(frame_count, 0);
-        _ -> ok
-      end,
-      Count = get(frame_count),
-      if
-        Count > 20 -> 
-          io:format("Mpeg2: ~p ~p ~p~n", [round(DTS), size(Body), erlang:crc32(Body)]),
-          ems_video:mpeg2_raw(LibMPEG2, Body);
-        true -> ok
-      end,
-      put(frame_count, Count + 1),
+      % io:format("Mpeg2: ~p ~p ~p~n", [round(DTS), size(Body), erlang:crc32(Body)]),
+      ems_video:mpeg2_raw(LibMPEG2, Body),
       
       % case ems_video:mpeg2_raw(LibMPEG2, Body) of
       %   {ok, YUV} -> io:format("YUV: ~p~n", [size(YUV)]);

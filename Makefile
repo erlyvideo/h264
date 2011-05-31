@@ -8,8 +8,7 @@ compile:
 
 ebin/ems_video.so: src/ems_video.c src/ems_jpeg.c src/ems_x264.c src/ems_mpeg2.c test
 	gcc -c -o ebin/ems_video.o src/ems_video.c -I $(NIFDIR)
-	cd libmpeg2 && make
-	gcc -shared -undefined dynamic_lookup -o $@ ebin/encoder.o ebin/libswscale.a ebin/readjpeg.o ebin/ems_video.o -g -ljpeg -lx264 -lavutil libmpeg2/libmpeg2/.libs/libmpeg2.a
+	gcc -shared -undefined dynamic_lookup -o $@ ebin/encoder.o ebin/libswscale.a ebin/readjpeg.o ebin/ems_video.o -g -ljpeg -lx264 -lavutil -lmpeg2
 
 
 
