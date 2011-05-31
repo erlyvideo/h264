@@ -12,29 +12,29 @@ main([]) ->
   log4erl:add_console_appender(default_logger, app1, {debug, "%l%n"}),
   
   
-  X264 = undefined,
-  % {ok, Out} = file:open("out.264", [binary, write]),
 
-  LibMPEG2 = ems_video:init_mpeg2(),
   Path = "../erlyvideo/zvezda.ts",
   
   {ok, File} = file:open(Path, [read,binary,{read_ahead,131072},raw]),
   {ok, Reader} = mpegts_reader:init([[{program,104}]]),
   {ok, Writer} = flv_writer:start_link("out.flv"),
-  dump_frames(File, Reader, LibMPEG2, X264, Writer).
+  dump_frames(File, Reader, Writer, undefined).
   
 
-dump_frames(File, Reader, LibMPEG2, X264, Writer) ->
+dump_frames(File, Reader, Writer, Transcoder) ->
   case file:read(File, 188) of
     {ok, <<16#47, Bin/binary>>} ->
       case mpegts_reader:decode_ts(Bin, Reader) of
         {ok, Reader1, undefined} ->
-          dump_frames(File, Reader1, LibMPEG2, X264, Writer);
-        {ok, Reader1, #pes_packet{pts = PTS, dts = DTS} = PES} ->
-          {Reader2, YUV} = decode_pes(Reader1, PES, LibMPEG2),
-          Encoder = encode_frame(LibMPEG2, X264, #video_frame{pts = round(PTS), dts = round(DTS), codec = yuv, body = YUV}, Writer),
+          dump_frames(File, Reader1, Writer, Transcoder);
+        {ok, Reader1, #pes_packet{pts = PTS, dts = DTS, body = Body} = PES} ->
+          {TC1, Frame} = ems_video:mpeg2_h264(Transcoder, #video_frame{codec = mpeg2video, pts = PTS, dts = DTS, body = Body, content = video}),
+          case Frame of
+            undefined -> ok;
+            #video_frame{} -> flv_writer:write_frame(Frame, Writer)
+          end,
           
-          dump_frames(File, Reader2, LibMPEG2, Encoder, Writer)
+          dump_frames(File, Reader1, Writer, TC1)
       end;
     eof -> ok
   end.     

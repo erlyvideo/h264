@@ -93,7 +93,6 @@ mpeg2_raw(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   
   while(1) {
     int state = mpeg2_parse (mpeg2dec);
-    // fprintf(stderr, "State: %d (%d)\r\n", state, mpeg2dec->buf_end - mpeg2dec->buf_start);
     switch(state) {
       case STATE_BUFFER:
       {
@@ -165,6 +164,12 @@ mpeg2_raw(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
       case STATE_INVALID:
       {
         fprintf(stderr, "Invalid stream\r\n");
+  // int i;
+  // fprintf(stderr, "PES(%lu): <<", mpeg2.size);
+  // for(i = 0; i < 30; i++) {
+  //   fprintf(stderr, "%s%d", i == 0 ? "" : ",", mpeg2.data[i]);
+  // }
+  // fprintf(stderr, ">>\r\n");
         mpeg2_close(mpeg2dec);
         mpeg2dec = mpeg2_init();
         mpeg2_state->info = mpeg2_info(mpeg2dec);

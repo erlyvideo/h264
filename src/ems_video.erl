@@ -10,8 +10,14 @@
 -export([jpeg_rgb/1]).
 
 -export([init_mpeg2/0, mpeg2_raw/2, mpeg2_getopt/2]).
+-export([mpeg2_h264/2]).
 
 -define(NIF_STUB, erlang:error(nif_not_loaded_ems_video)).
+
+-record(mpeg2_h264, {
+  mpeg2,
+  x264
+}).
 
 on_load() ->
   load_nif(erlang:system_info(otp_release) >= "R14A").
@@ -35,7 +41,7 @@ init_x264(_Options) ->
   ?NIF_STUB.
 
 yuv_x264(X264, #video_frame{dts = DTS, pts = PTS, codec = yuv, body = YUV}) ->
-  real_yuv_x264(X264, YUV, DTS, PTS).
+  real_yuv_x264(X264, YUV, round(DTS), round(PTS)).
 
 real_yuv_x264(_X264, _YUV, _DTS, _PTS) ->
   ?NIF_STUB.
@@ -45,6 +51,64 @@ jpeg_rgb(_JPEG) ->
 
 init_mpeg2() ->
   ?NIF_STUB.
+  
+  
+mpeg2_h264(undefined, #video_frame{} = Frame) ->
+  mpeg2_h264(#mpeg2_h264{}, Frame);
+
+mpeg2_h264(#mpeg2_h264{mpeg2 = undefined} = State, #video_frame{} = Frame) ->
+  mpeg2_h264(State#mpeg2_h264{mpeg2 = ems_video:init_mpeg2()}, Frame);
+
+mpeg2_h264(#mpeg2_h264{mpeg2 = Mpeg2} = State, #video_frame{codec = mpeg2video, body = Body} = Frame) ->
+  case mpeg2_raw(Mpeg2, Body) of
+    {yuv, YUV} ->
+      encode_h264(State, Frame#video_frame{codec = yuv, body = YUV});
+    _ ->
+      {State, undefined}
+  end.
+
+unpack_config(NALS) ->
+  unpack_config(NALS, h264:init()).
+
+unpack_config(<<Len:32, NAL:Len/binary, NALS/binary>>, H264) ->
+  {H264_1, _} = h264:decode_nal(NAL, H264),
+  unpack_config(NALS, H264_1);
+
+unpack_config(<<>>, H264) ->
+  h264:decoder_config(H264).
+
+
+encode_h264(#mpeg2_h264{x264 = undefined, mpeg2 = Mpeg2} = State, #video_frame{dts = DTS, codec = yuv} = YUV) ->
+  {ok, Encoder, NALS} = init_x264([{width, mpeg2_getopt(Mpeg2, width)}, {height, mpeg2_getopt(Mpeg2, height)}]),
+  Config = unpack_config(NALS),
+  
+  Frame = #video_frame{
+    content = video,
+    flavor = config,
+    codec = h264,
+    pts = DTS, 
+    dts = DTS,
+    body = Config
+  },
+  ems_video:yuv_x264(Encoder, YUV),
+  {State#mpeg2_h264{x264 = Encoder}, Frame};
+
+encode_h264(#mpeg2_h264{x264 = Encoder} = State, #video_frame{codec = yuv} = YUV) ->
+  case ems_video:yuv_x264(Encoder, YUV) of
+    ok -> {State, undefined};
+    {ok, Flavor, DTS, PTS, H264} ->
+      Frame = #video_frame{
+        content = video,
+        flavor = Flavor,
+        codec = h264,
+        pts = PTS,
+        dts = DTS,
+        body = H264
+      },
+      {State, Frame}
+  end.
+  
+  
   
 mpeg2_getopt(_Mpeg2, _Option) ->
   ?NIF_STUB.
