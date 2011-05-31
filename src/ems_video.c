@@ -18,7 +18,7 @@
 #include "ems_mpeg2.c"
 #endif /* HAS_MPEG2 */
 
-#include "ems_jpeg.c"
+// #include "ems_jpeg.c"
 
 static int
 load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
@@ -73,13 +73,14 @@ static ErlNifFunc ems_video_funcs[] =
 #endif /* HAS_XVID */
 #ifdef HAS_X264
     {"init_x264", 1, init_x264},
-    {"rgb_x264", 2, rgb_x264},
+    {"real_yuv_x264", 4, yuv_x264},
 #endif /* HAS_X264 */
 #ifdef HAS_MPEG2
     {"init_mpeg2", 0, init_mpeg2},
     {"real_mpeg2_raw", 2, mpeg2_raw},
+    {"mpeg2_getopt", 2, mpeg2_getopt}
 #endif /* HAS_MPEG2 */
-    {"jpeg_rgb", 1, jpeg_rgb}
+    // {"jpeg_rgb", 1, jpeg_rgb}
 };
 
 ERL_NIF_INIT(ems_video, ems_video_funcs, load, reload, upgrade, unload)

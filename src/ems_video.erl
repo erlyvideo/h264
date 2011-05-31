@@ -6,10 +6,10 @@
 -include_lib("erlmedia/include/video_frame.hrl").
 
 -export([init_xvid/0, mpeg4_raw/2]).
--export([init_x264/1, rgb_x264/2]).
+-export([init_x264/1, yuv_x264/2]).
 -export([jpeg_rgb/1]).
 
--export([init_mpeg2/0, mpeg2_raw/2]).
+-export([init_mpeg2/0, mpeg2_raw/2, mpeg2_getopt/2]).
 
 -define(NIF_STUB, erlang:error(nif_not_loaded_ems_video)).
 
@@ -34,14 +34,19 @@ mpeg4_raw(_Xvid, _Mpeg4) ->
 init_x264(_Options) ->
   ?NIF_STUB.
 
-rgb_x264(_X264, _RGB) ->
-  ?NIF_STUB.
+yuv_x264(X264, #video_frame{dts = DTS, pts = PTS, codec = yuv, body = YUV}) ->
+  real_yuv_x264(X264, YUV, DTS, PTS).
 
+real_yuv_x264(_X264, _YUV, _DTS, _PTS) ->
+  ?NIF_STUB.
 
 jpeg_rgb(_JPEG) ->
   ?NIF_STUB.
 
 init_mpeg2() ->
+  ?NIF_STUB.
+  
+mpeg2_getopt(_Mpeg2, _Option) ->
   ?NIF_STUB.
 
 mpeg2_raw(Mpeg2, Pes) ->
