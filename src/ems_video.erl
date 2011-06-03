@@ -16,7 +16,8 @@
 
 -record(mpeg2_h264, {
   mpeg2,
-  x264
+  x264,
+  buffer = <<>>
 }).
 
 on_load() ->
@@ -40,10 +41,10 @@ mpeg4_raw(_Xvid, _Mpeg4) ->
 init_x264(_Options) ->
   ?NIF_STUB.
 
-yuv_x264(X264, #video_frame{dts = DTS, pts = PTS, codec = yuv, body = YUV}) ->
-  real_yuv_x264(X264, YUV, round(DTS), round(PTS)).
+yuv_x264(X264, #video_frame{pts = PTS, codec = yuv, body = YUV}) ->
+  real_yuv_x264(X264, YUV, round(PTS)).
 
-real_yuv_x264(_X264, _YUV, _DTS, _PTS) ->
+real_yuv_x264(_X264, _YUV, _PTS) ->
   ?NIF_STUB.
 
 jpeg_rgb(_JPEG) ->
@@ -59,12 +60,19 @@ mpeg2_h264(undefined, #video_frame{} = Frame) ->
 mpeg2_h264(#mpeg2_h264{mpeg2 = undefined} = State, #video_frame{} = Frame) ->
   mpeg2_h264(State#mpeg2_h264{mpeg2 = ems_video:init_mpeg2()}, Frame);
 
-mpeg2_h264(#mpeg2_h264{mpeg2 = Mpeg2} = State, #video_frame{codec = mpeg2video, body = Body} = Frame) ->
-  case mpeg2_raw(Mpeg2, Body) of
-    {yuv, YUV} ->
-      encode_h264(State, Frame#video_frame{codec = yuv, body = YUV});
-    _ ->
-      {State, undefined}
+mpeg2_h264(#mpeg2_h264{mpeg2 = Mpeg2, buffer = Buffer} = State, #video_frame{codec = mpeg2video, body = Body} = Frame) ->
+  case mpeg2_raw(Mpeg2, <<Buffer/binary, Body/binary>>) of
+    {yuv, YUV, Rest} ->
+      io:format("Got YUV~n"),
+      encode_h264(State#mpeg2_h264{buffer = Rest}, Frame#video_frame{codec = yuv, body = YUV});
+    {more, Rest} ->
+      io:format("Buffering ~p~n", [size(Rest)]),
+      {State#mpeg2_h264{buffer = Rest}, undefined};
+    more ->
+      {State#mpeg2_h264{buffer = <<>>}, undefined}  
+    % _Else ->
+    %   % io:format("Buffering MPEG-TS ~p~n", [_Else]),
+    %   {State, undefined}
   end.
 
 unpack_config(NALS) ->
@@ -101,10 +109,11 @@ encode_h264(#mpeg2_h264{x264 = Encoder} = State, #video_frame{codec = yuv} = YUV
         content = video,
         flavor = Flavor,
         codec = h264,
-        pts = PTS,
         dts = DTS,
+        pts = PTS,
         body = H264
       },
+      % io:format("H264: ~p ~p~n", [DTS, PTS - DTS]),
       {State, Frame}
   end.
   

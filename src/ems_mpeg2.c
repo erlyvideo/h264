@@ -1,6 +1,11 @@
-#include <mpeg2dec/mpeg2.h>
-#define ATTR_ALIGN(X)
-#include "mpeg2_internal.h"
+#ifdef ATTRIBUTE_ALIGNED_MAX
+#define ATTR_ALIGN(align) __attribute__ ((__aligned__ ((ATTRIBUTE_ALIGNED_MAX < align) ? ATTRIBUTE_ALIGNED_MAX : align)))
+#else
+#define ATTR_ALIGN(align)
+#endif
+#include "../libmpeg2/mpeg2.h"
+// #include <mpeg2dec/mpeg2.h>
+// #include "mpeg2_internal.h"
 
 ErlNifResourceType* mpeg2_resource;
 
@@ -11,6 +16,8 @@ typedef struct {
   uint32_t user_data_len;
   int width;
   int height;
+  uint8_t *pending_buffer;
+  uint32_t pending_length;
 } Mpeg2;
 
 
@@ -28,6 +35,7 @@ mpeg2_destructor(ErlNifEnv* env, void* obj)
 static ERL_NIF_TERM
 init_mpeg2(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+  
   int debug_level = 4, ret;
   Mpeg2 *mpeg2;
   mpeg2dec_t *mpeg2dec;
@@ -82,6 +90,9 @@ mpeg2_raw(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_badarg(env);
   }
   
+  static int started = 0;
+  if(!started && mpeg2.size < 80000) return enif_make_atom(env, "more");
+  started = 1;
   
   mpeg2dec = mpeg2_state->dec;
   // int i;
@@ -91,20 +102,22 @@ mpeg2_raw(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   // }
   // fprintf(stderr, ">>\r\n");
   
+  mpeg2_buffer(mpeg2dec, mpeg2.data, mpeg2.data + mpeg2.size);
+  
+  
+  
   while(1) {
+    uint8_t *s, *e;
+    s = mpeg2_getbuffer(mpeg2dec);
+    e = mpeg2_getbuffer(mpeg2dec) + mpeg2_getpos(mpeg2dec);
+    fprintf(stderr, "Before parse: %d\r\n", mpeg2_getpos(mpeg2dec));
     int state = mpeg2_parse (mpeg2dec);
+    fprintf(stderr, "After parse: %d\r\n", mpeg2_getpos(mpeg2dec));
     switch(state) {
       case STATE_BUFFER:
       {
-        if(flushed_buffer) {
-          if(has_raw) {
-            // enif_free_binary(&raw);
-          }
-          return enif_make_atom(env, "more");
-        }
-        flushed_buffer = 1;
-        mpeg2_buffer(mpeg2dec, mpeg2.data, mpeg2.data + mpeg2.size);
-        break;
+        fprintf(stderr, "STATE_BUFFER: %d\r\n", mpeg2_getpos(mpeg2dec));
+        return enif_make_atom(env, "more");
       }
       
       case STATE_SEQUENCE:
@@ -116,7 +129,7 @@ mpeg2_raw(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
       case STATE_PICTURE:
       {
-        // fprintf(stderr, "Pic\r\n");
+        fprintf(stderr, "Pic\r\n");
         // uint32_t stride_size = mpeg2_state->width*mpeg2_state->height;
         // raw = (ErlNifBinary *)malloc(sizeof(ErlNifBinary));
         // enif_alloc_binary(stride_size*3/2, raw);
@@ -145,6 +158,12 @@ mpeg2_raw(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     	case STATE_INVALID_END:
     	{
         char *name = state == STATE_SLICE ? "slice" : state == STATE_END ? "end" : "invalid_end";
+        
+        // if(mpeg2_getpos(mpeg2dec) > 0) {
+        //   mpeg2_state->pending_length = mpeg2_getpos(mpeg2dec);
+        //   mpeg2_state->pending_buffer = malloc(mpeg2_state->pending_length);
+        //   memcpy(mpeg2_state->pending_buffer, mpeg2_getbuffer(mpeg2dec), mpeg2_state->pending_length);
+        // }
         // fprintf(stderr, "Slice: %d %s, %d\r\n", state, name, mpeg2_state->info->display_fbuf != NULL);
         if(mpeg2_state->info->display_fbuf) {
           // return enif_make_atom(env, "yuv");
@@ -154,11 +173,14 @@ mpeg2_raw(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
           memcpy(raw.data, mpeg2_state->info->display_fbuf->buf[0], stride_size);
           memcpy(raw.data+stride_size, mpeg2_state->info->display_fbuf->buf[1], stride_size/4);
           memcpy(raw.data+stride_size*5/4, mpeg2_state->info->display_fbuf->buf[2], stride_size/4);
-          return enif_make_tuple2(env, enif_make_atom(env, "yuv"), enif_make_binary(env, &raw));
+          fprintf(stderr, "STATE_SLICE %d, %d\r\n", state, mpeg2_getpos(mpeg2dec));
+          return enif_make_tuple3(env, enif_make_atom(env, "yuv"), 
+            enif_make_binary(env, &raw), enif_make_sub_binary(env, argv[1], mpeg2_getbuffer(mpeg2dec) - mpeg2.data, mpeg2_getpos(mpeg2dec)));
           
           // return enif_make_tuple2(env, enif_make_atom(env, "yuv"), enif_make_binary(env, mpeg2_state->info->display_fbuf->id));
         }
-        break;
+        fprintf(stderr, "Fuck, no buf\r\n");
+        return enif_make_tuple2(env, enif_make_atom(env, "more"), enif_make_sub_binary(env, argv[1], mpeg2_getbuffer(mpeg2dec) - mpeg2.data, mpeg2_getpos(mpeg2dec)));
     	}
 
       case STATE_INVALID:

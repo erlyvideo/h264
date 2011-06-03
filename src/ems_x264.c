@@ -208,7 +208,7 @@ yuv_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   X264 *x264;
   ErlNifBinary yuv, out, h264;
-  ErlNifSInt64 pts, dts;
+  ErlNifSInt64 pts;
   
   if(!enif_get_resource(env, argv[0], x264_resource, (void **)&x264)) {
     return enif_make_badarg(env);
@@ -218,11 +218,8 @@ yuv_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_badarg(env);
   }
 
-  if(!enif_get_int64(env, argv[2], &dts)) {
-    return enif_make_badarg(env);
-  }
-
-  if(!enif_get_int64(env, argv[3], &pts)) {
+  if(!enif_get_int64(env, argv[2], &pts)) {
+    fprintf(stderr, "Invalid PTS\r\n");
     return enif_make_badarg(env);
   }
   
@@ -241,7 +238,7 @@ yuv_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   x264->picture.img.plane[2] = yuv.data + plane_size*5/4;
   x264->picture.img.i_stride[2] = x264->width/2;
   
-	x264->picture.i_dts = dts;
+	x264->picture.i_dts = pts;
 	x264->picture.i_pts = pts;
 	x264->picture.i_type = X264_TYPE_AUTO;
 	x264->picture.i_qpplus1 = 0;
@@ -252,6 +249,7 @@ yuv_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   int len = 0;
   
   len = x264_encoder_encode(x264->encoder, &nals, &count, &x264->picture, &output);
+  // fprintf(stderr, "H264: %llu %lld\r\n", output.i_dts, output.i_pts - output.i_dts);
   if(len == -1) {
     return enif_make_badarg(env);
   }
