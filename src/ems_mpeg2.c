@@ -90,9 +90,9 @@ mpeg2_raw(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_badarg(env);
   }
   
-  static int started = 0;
-  if(!started && mpeg2.size < 80000) return enif_make_atom(env, "more");
-  started = 1;
+  // static int started = 0;
+  // if(!started && mpeg2.size < 80000) return enif_make_atom(env, "more");
+  // started = 1;
   
   mpeg2dec = mpeg2_state->dec;
   // int i;
@@ -107,16 +107,16 @@ mpeg2_raw(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   
   
   while(1) {
-    uint8_t *s, *e;
-    s = mpeg2_getbuffer(mpeg2dec);
-    e = mpeg2_getbuffer(mpeg2dec) + mpeg2_getpos(mpeg2dec);
-    fprintf(stderr, "Before parse: %d\r\n", mpeg2_getpos(mpeg2dec));
+    // uint8_t *s, *e;
+    // s = mpeg2_getbuffer(mpeg2dec);
+    // e = mpeg2_getbuffer(mpeg2dec) + mpeg2_getpos(mpeg2dec);
+    // fprintf(stderr, "Before parse: %d\r\n", mpeg2_getpos(mpeg2dec));
     int state = mpeg2_parse (mpeg2dec);
-    fprintf(stderr, "After parse: %d\r\n", mpeg2_getpos(mpeg2dec));
+    // fprintf(stderr, "After parse: %d\r\n", mpeg2_getpos(mpeg2dec));
     switch(state) {
       case STATE_BUFFER:
       {
-        fprintf(stderr, "STATE_BUFFER: %d\r\n", mpeg2_getpos(mpeg2dec));
+        // fprintf(stderr, "STATE_BUFFER: %d\r\n", mpeg2_getpos(mpeg2dec));
         return enif_make_atom(env, "more");
       }
       
@@ -124,12 +124,12 @@ mpeg2_raw(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
       mpeg2_state->width = mpeg2_state->info->sequence->width;
       mpeg2_state->height = mpeg2_state->info->sequence->height;
       // mpeg2_custom_fbuf(mpeg2dec, 1);
-      fprintf(stderr, "Seq %dx%d\r\n", mpeg2_state->width, mpeg2_state->height);
+      // fprintf(stderr, "Seq %dx%d\r\n", mpeg2_state->width, mpeg2_state->height);
       break;
 
       case STATE_PICTURE:
       {
-        fprintf(stderr, "Pic\r\n");
+        // fprintf(stderr, "Pic\r\n");
         // uint32_t stride_size = mpeg2_state->width*mpeg2_state->height;
         // raw = (ErlNifBinary *)malloc(sizeof(ErlNifBinary));
         // enif_alloc_binary(stride_size*3/2, raw);
@@ -147,7 +147,7 @@ mpeg2_raw(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         //   mpeg2_state->user_data_len = mpeg2_state->info->user_data_len;
         //   memcpy(mpeg2_state->user_data, mpeg2_state->user_data, mpeg2_state->info->user_data_len);
         // }
-        fprintf(stderr, "GOP\r\n");
+        // fprintf(stderr, "GOP\r\n");
 
         break;
 
@@ -173,13 +173,13 @@ mpeg2_raw(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
           memcpy(raw.data, mpeg2_state->info->display_fbuf->buf[0], stride_size);
           memcpy(raw.data+stride_size, mpeg2_state->info->display_fbuf->buf[1], stride_size/4);
           memcpy(raw.data+stride_size*5/4, mpeg2_state->info->display_fbuf->buf[2], stride_size/4);
-          fprintf(stderr, "STATE_SLICE %d, %d\r\n", state, mpeg2_getpos(mpeg2dec));
+          // fprintf(stderr, "STATE_SLICE %d, %d\r\n", state, mpeg2_getpos(mpeg2dec));
           return enif_make_tuple3(env, enif_make_atom(env, "yuv"), 
             enif_make_binary(env, &raw), enif_make_sub_binary(env, argv[1], mpeg2_getbuffer(mpeg2dec) - mpeg2.data, mpeg2_getpos(mpeg2dec)));
           
           // return enif_make_tuple2(env, enif_make_atom(env, "yuv"), enif_make_binary(env, mpeg2_state->info->display_fbuf->id));
         }
-        fprintf(stderr, "Fuck, no buf\r\n");
+        // fprintf(stderr, "Fuck, no buf\r\n");
         return enif_make_tuple2(env, enif_make_atom(env, "more"), enif_make_sub_binary(env, argv[1], mpeg2_getbuffer(mpeg2dec) - mpeg2.data, mpeg2_getpos(mpeg2dec)));
     	}
 

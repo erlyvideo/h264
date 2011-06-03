@@ -13,9 +13,9 @@ main([]) ->
   
   
 
-  % Path = "../erlyvideo/zvezda.ts",
+  Path = "../erlyvideo/zvezda.ts",
   % Path = "zz.ts",
-  Path = "zvezda-bkp.ts",
+  % Path = "zvezda-bkp.ts",
   
   {ok, File} = file:open(Path, [read,binary,{read_ahead,131072},raw]),
   {ok, Reader} = mpegts_reader:init([[{program,104}]]),
@@ -33,7 +33,7 @@ dump_frames(File, Reader, Writer, Transcoder) ->
         {ok, Reader1, #pes_packet{pts = PTS, dts = DTS, body = Body} = PES} ->
           put(last_dts, DTS),
           % io:format("PES ~p ~p ~p ~p~n", [round(DTS), round(PTS - DTS), size(Body), erlang:crc32(Body)]),
-          io:format("PES ~p ~p~n", [size(Body), erlang:crc32(Body)]),
+          % io:format("PES ~p ~p~n", [size(Body), erlang:crc32(Body)]),
           {TC1, Frame} = ems_video:mpeg2_h264(Transcoder, #video_frame{codec = mpeg2video, pts = PTS, dts = DTS, body = Body, content = video}),
           case Frame of
             undefined -> ok;
