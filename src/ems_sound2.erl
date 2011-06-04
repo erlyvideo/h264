@@ -37,7 +37,6 @@ load_nif(false) ->
 
 mp2_aac(undefined, #video_frame{body = Body, dts = DTS} = Frame) ->
   {ok, #mp3_frame{samples = RawSamples, sample_rate = SampleRate, channels = Channels}, _} = mp3:read(Body),
-  % io:format("Hm, initing mpg123: ~p ~p ~p~n", [RawSamples, SampleRate, Channels]),
   {ok, Decoder} = init_mpg123(<<RawSamples:32/little, SampleRate:32/little, Channels:32/little>>),
   {ok, Encoder, Config} = init_faac(<<SampleRate:32/little, Channels:32/little>>),
   SamplesPerFrame = 1024,
@@ -47,10 +46,8 @@ mp2_aac(undefined, #video_frame{body = Body, dts = DTS} = Frame) ->
       _ -> stereo
     end, bit16, rate44
   },
-  Transcoder = #transcoder{decoder = Decoder, encoder = Encoder, encoder_bytes = SamplesPerFrame*2, sound = Sound, start_dts = DTS, sample_rate = SampleRate},
+  Transcoder = #transcoder{decoder = Decoder, encoder = Encoder, encoder_bytes = SamplesPerFrame*2*Channels, sound = Sound, start_dts = DTS, sample_rate = SampleRate},
   ConfigFrame = Frame#video_frame{codec = aac, flavor = config, body = Config, sound = Sound},
-  % file:write(F, Body),
-  % io:format("mp2: ~p~n", [Body]),
   {TC1, Frames} = mp2_aac(Transcoder, Frame),
   {TC1, [ConfigFrame|Frames]};
   
@@ -90,7 +87,6 @@ encode(#transcoder{encoder_bytes = Length, encoder = Encoder} = TC, Bin, Acc) ->
   end.
 
 output_frame(#transcoder{encoder_bytes = Length, counter = Counter, sample_rate = SampleRate, start_dts = StartDTS, sound = Sound} = TC, AAC) ->
-  % io:format("Making AAC frame: ~p, ~p, ~p~n", [StartDTS, Counter, SampleRate]),
   DTS = StartDTS + Counter*1000/SampleRate,
   Frame = #video_frame{
     content = audio,
