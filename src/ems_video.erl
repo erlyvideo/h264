@@ -67,11 +67,11 @@ mpeg2_h264(#mpeg2_h264{mpeg2 = Mpeg2, buffer = Buffer} = State, #video_frame{cod
       encode_h264(State#mpeg2_h264{buffer = Rest}, Frame#video_frame{codec = yuv, body = YUV, dts = DTS, pts = DTS});
     {more, Rest} ->
       io:format("Buffering ~p~n", [size(Rest)]),
-      {State#mpeg2_h264{buffer = Rest}, undefined};
+      {State#mpeg2_h264{buffer = Rest}, []};
     more ->
-      {State#mpeg2_h264{buffer = <<>>}, undefined};
+      {State#mpeg2_h264{buffer = <<>>}, []};
     {error,invalid_stream} ->  
-      {State#mpeg2_h264{buffer = <<>>}, undefined}
+      {State#mpeg2_h264{buffer = <<>>}, []}
     % _Else ->
     %   % io:format("Buffering MPEG-TS ~p~n", [_Else]),
     %   {State, undefined}

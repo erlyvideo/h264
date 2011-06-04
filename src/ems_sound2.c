@@ -4,6 +4,7 @@
 #include "erl_nif.h"
 
 #include "ems_mpg123.c"
+#include "ems_faac.c"
 
 // #include "ems_jpeg.c"
 
@@ -13,6 +14,10 @@ load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
   if(!mpg123_resource) {
     mpg123_init();
     mpg123_resource = enif_open_resource_type(env, NULL, "mpg123_resource", mpg123_destructor, ERL_NIF_RT_CREATE, NULL);
+  }
+
+  if(!faac_resource) {
+    faac_resource = enif_open_resource_type(env, NULL, "faac_resource", faac_destructor, ERL_NIF_RT_CREATE, NULL);
   }
 
   return 0;
@@ -41,7 +46,10 @@ unload(ErlNifEnv* env, void* priv)
 
 static ErlNifFunc ems_sound2_funcs[] =
 {
-    {"init_mpg123", 1, init_mpg123}
+    {"init_mpg123", 1, init_mpg123},
+    {"mp3_pcm", 2, mp3_pcm},
+    {"init_faac", 1, init_faac},
+    {"pcm_aac", 2, pcm_faac}
     // {"mpeg4_raw", 2, mpeg4_raw},
     // {"jpeg_rgb", 1, jpeg_rgb}
 };

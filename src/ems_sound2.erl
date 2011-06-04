@@ -6,7 +6,7 @@
 -include_lib("erlmedia/include/video_frame.hrl").
 -include_lib("erlmedia/include/mp3.hrl").
 
--define(NIF_STUB, erlang:error(nif_not_loaded_ems_sound2)).
+-define(NIF_STUB(X), erlang:error({nif_not_implemented, X})).
 
 -export([mp2_aac/2]).
 
@@ -26,40 +26,93 @@ load_nif(false) ->
   decoder,
   encoder,
   options,
-  decoder_samples,
-  encoder_samples,
+  encoder_bytes,
   buffer = <<>>,
-  writer
+  writer,
+  start_dts,
+  counter = 0,
+  sample_rate,
+  sound
 }).
 
-mp2_aac(undefined, #video_frame{body = Body} = Frame) ->
+mp2_aac(undefined, #video_frame{body = Body, dts = DTS} = Frame) ->
   {ok, #mp3_frame{samples = RawSamples, sample_rate = SampleRate, channels = Channels}, _} = mp3:read(Body),
-  io:format("Hm, initing mpg123: ~p ~p ~p~n", [RawSamples, SampleRate, Channels]),
+  % io:format("Hm, initing mpg123: ~p ~p ~p~n", [RawSamples, SampleRate, Channels]),
   {ok, Decoder} = init_mpg123(<<RawSamples:32/little, SampleRate:32/little, Channels:32/little>>),
-  % {Encoder, Config, SamplesPerFrame} = init_faac(Options),
-  Encoder = undefined,
-  Config = <<18,5>>,
+  {ok, Encoder, Config} = init_faac(<<SampleRate:32/little, Channels:32/little>>),
   SamplesPerFrame = 1024,
-  {ok, F} = file:open("out.mp3", [write,binary]),
-  Transcoder = #transcoder{decoder = Decoder, encoder = Encoder, decoder_samples = RawSamples, encoder_samples = SamplesPerFrame, writer = F},
-  _ConfigFrame = Frame#video_frame{codec = aac, flavor = config, body = Config},
-  file:write(F, Body),
+  Sound = {
+    case Channels of
+      1 -> mono;
+      _ -> stereo
+    end, bit16, rate44
+  },
+  Transcoder = #transcoder{decoder = Decoder, encoder = Encoder, encoder_bytes = SamplesPerFrame*2, sound = Sound, start_dts = DTS, sample_rate = SampleRate},
+  ConfigFrame = Frame#video_frame{codec = aac, flavor = config, body = Config, sound = Sound},
+  % file:write(F, Body),
   % io:format("mp2: ~p~n", [Body]),
-  {Transcoder, []};
+  {TC1, Frames} = mp2_aac(Transcoder, Frame),
+  {TC1, [ConfigFrame|Frames]};
   
   
   
 
-mp2_aac(#transcoder{writer = F} = Transcoder, #video_frame{codec = mpeg2audio, body = Body} = Frame) ->
-  file:write(F, Body),
-  io:format("Transcoding sound~n"),
-  {Transcoder, [Frame#video_frame{codec = pcm, sound = {stereo, bit16, rate44}}]}.
+mp2_aac(#transcoder{} = Transcoder, #video_frame{codec = mpeg2audio, body = Body}) ->
+  mp2_aac(Transcoder, Body, []).
+
+
+mp2_aac(#transcoder{} = TC, <<>>, Acc) ->
+  {TC, Acc};
+
+mp2_aac(#transcoder{decoder = Decoder, buffer = Buf} = TC, Body, Acc) ->
+  {ok, #mp3_frame{body = MP3}, Rest} = mp3:read(Body),
+  PCM = mp3_pcm(Decoder, MP3),
+  Bin = case Buf of
+    <<>> -> PCM;
+    _ -> <<Buf/binary, PCM/binary>>
+  end,
+  {TC1, Frames} = encode(TC, Bin, []),
+  mp2_aac(TC1, Rest, Acc++Frames).
+
+
+encode(#transcoder{encoder_bytes = Length, encoder = Encoder} = TC, Bin, Acc) ->
+  case Bin of
+    <<PCM:Length/binary, Rest/binary>> ->
+      case pcm_aac(Encoder, PCM) of
+        undefined ->
+          encode(TC, Rest, Acc);
+        AAC ->
+          {TC1, Frame} = output_frame(TC, AAC),
+          encode(TC1, Rest, [Frame|Acc])
+      end;
+    _ ->
+      {TC#transcoder{buffer = Bin}, lists:reverse(Acc)}
+  end.
+
+output_frame(#transcoder{encoder_bytes = Length, counter = Counter, sample_rate = SampleRate, start_dts = StartDTS, sound = Sound} = TC, AAC) ->
+  % io:format("Making AAC frame: ~p, ~p, ~p~n", [StartDTS, Counter, SampleRate]),
+  DTS = StartDTS + Counter*1000/SampleRate,
+  Frame = #video_frame{
+    content = audio,
+    flavor = frame,
+    sound = Sound,
+    codec = aac,
+    dts = DTS,
+    pts = DTS,
+    body = AAC
+  },
+  {TC#transcoder{counter = Counter + Length div 2}, Frame}.
 
 
 
 init_mpg123(_Body) ->
-  ?NIF_STUB.
+  ?NIF_STUB(init_mpg123).
 
+mp3_pcm(_Decoder, _Body) ->
+  ?NIF_STUB(mp3_pcm).
+
+pcm_aac(_Decoder, _Body) ->
+  ?NIF_STUB(pcm_aac).
 
 init_faac(_Options) ->
-  ?NIF_STUB.
+  ?NIF_STUB(init_faac).

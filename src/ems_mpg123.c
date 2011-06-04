@@ -6,7 +6,6 @@ typedef struct {
   uint32_t sample_rate;
   uint32_t channels;
   uint32_t samples;
-  uint8_t *buffer;
   int enc;
 } Mpg123;
 
@@ -62,27 +61,38 @@ init_mpg123(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   return enif_make_tuple2(env, enif_make_atom(env, "ok"), enif_make_resource(env, mpg123));
 }
 
-// int mp3_pcm(void *decoder, bin in, bin *out)
-// {
-//   mpg123_handle *mh;
-//   size_t converted = 0;
-//   int res;
-//   
-//   mh = (mpg123_handle *)decoder;
-// 
-//   assert(out->size >= FRAME_SIZE);
-// 
-//   
-//   res = mpg123_decode(mh, in.body, in.len, out->body, out->size, &converted);
-//   out->len = converted;
-//   // fprintf(stderr, "res(%d): %lu -> %lu\r\n", res, in.len, converted); 
-//   switch(res) {
-//     case MPG123_NEED_MORE: return 0;
-//     case MPG123_OK: return converted;
-//     case MPG123_NEW_FORMAT: fprintf(stderr, "New format\r\n"); return converted;
-//     case MPG123_DONE: exit(0);
-//   }
-//   fprintf(stderr, "mpg123_decoder: %d\r\n", res);
-//   abort();
-// }
-// 
+
+static ERL_NIF_TERM
+mp3_pcm(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+  mpg123_handle *mh;
+  size_t converted = 0;
+  int res;
+  Mpg123 *mpg123;
+  ErlNifBinary mp3, pcm;
+  
+  if(!enif_get_resource(env, argv[0], mpg123_resource, (void **)&mpg123)) {
+    return enif_make_badarg(env);
+  }
+  
+  if(!enif_inspect_binary(env, argv[1], &mp3)) {
+    return enif_make_badarg(env);
+  }
+  
+  mh = mpg123->mh;
+
+  enif_alloc_binary(mpg123->samples*2, &pcm);
+  
+  res = mpg123_decode(mh, mp3.data, mp3.size, pcm.data, pcm.size, &converted);
+  enif_realloc_binary(&pcm, converted);
+
+  switch(res) {
+    case MPG123_NEED_MORE:
+    case MPG123_OK:
+    case MPG123_NEW_FORMAT:
+    case MPG123_DONE:
+    return enif_make_binary(env, &pcm);
+  }
+  return enif_make_tuple2(env, enif_make_atom(env, "error"), enif_make_atom(env, "mpg123"));
+}
+

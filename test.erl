@@ -29,7 +29,7 @@ main([]) ->
 
 dump_frames(File, Reader, Writer) ->
   case file:read(File, 188) of
-    {ok, <<16#47, Bin/binary>>} ->
+    {ok, <<16#47, Bin:187/binary>>} ->
       LastDTS = get(last_dts),
       case mpegts_reader:decode_ts(Bin, Reader) of
         {ok, Reader1, #pes_packet{pts = PTS, dts = DTS, body = Body} = PES} ->
@@ -38,7 +38,7 @@ dump_frames(File, Reader, Writer) ->
           % io:format("PES ~p ~p~n", [size(Body), erlang:crc32(Body)]),
           case mpegts_reader:decode_pes(Reader1, PES) of
             {ok, Reader2, Frames} ->
-              % io:format("~p~n", [[{Codec,DTS} || #video_frame{codec = Codec, dts = DTS} <- Frames]]),
+              io:format("~p~n", [[{Codec,DTS} || #video_frame{codec = Codec, dts = DTS} <- Frames]]),
               (catch [flv_writer:write_frame(Frame, Writer) || Frame <- Frames]),
               dump_frames(File, Reader2, Writer);
             {ok, Reader2} ->
@@ -47,6 +47,7 @@ dump_frames(File, Reader, Writer) ->
         {ok, Reader1, _} ->
           dump_frames(File, Reader1, Writer)
       end;
+    {ok, _} -> ok;
     eof -> ok
   end.     
 

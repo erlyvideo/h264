@@ -18,9 +18,9 @@ ebin/ems_video.so: src/ems_video.c src/ems_x264.c src/ems_mpeg2.c libmpeg2_objs
 	gcc -c -o ebin/ems_video.o src/ems_video.c -I $(NIFDIR)
 	gcc -shared -undefined dynamic_lookup -o $@ ebin/libswscale.a ebin/ems_video.o -g ebin/libx264.a -lavutil $(MPEG2)
 
-ebin/ems_sound2.so: src/ems_sound2.c src/ems_mpg123.c
+ebin/ems_sound2.so: src/ems_sound2.c src/ems_mpg123.c src/ems_faac.c
 	gcc -c -o ebin/ems_sound2.o src/ems_sound2.c -I $(NIFDIR)
-	gcc -shared -undefined dynamic_lookup -o $@ ebin/ems_sound2.o -g -lmpg123
+	gcc -shared -undefined dynamic_lookup -o $@ ebin/ems_sound2.o -g -lmpg123 -lfaac
 
 libmpeg2_objs: $(LIBMPEG2_OBJS)
 
