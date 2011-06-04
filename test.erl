@@ -7,6 +7,8 @@
 main([]) ->
   code:add_path("ebin"),
   application:start(log4erl),
+  application:start(iconv),
+  application:start(mpegts),
   log4erl:error_logger_handler(), %% to get all error_logger
   log4erl:add_logger(default_logger),
   log4erl:add_console_appender(default_logger, app1, {debug, "%l%n"}),
