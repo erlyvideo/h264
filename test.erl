@@ -7,15 +7,15 @@
 main([]) ->
   code:add_path("ebin"),
   application:start(log4erl),
-  application:start(iconv),
-  application:start(mpegts),
   log4erl:error_logger_handler(), %% to get all error_logger
   log4erl:add_logger(default_logger),
   log4erl:add_console_appender(default_logger, app1, {debug, "%l%n"}),
+  application:start(iconv),
+  application:start(mpegts),
   
   
 
-  Path = "../erlyvideo/zvezda.ts",
+  Path = "../erlyvideo/test/files/mpeg2.ts",
   % Path = "zz.ts",
   % Path = "zvezda-bkp.ts",
   
@@ -24,10 +24,10 @@ main([]) ->
   % {ok, Reader} = mpegts_reader:init([[]]),
   {ok, Writer} = flv_writer:start_link("out.flv"),
   put(last_dts, 0),
-  dump_frames(File, Reader, Writer, undefined).
-  
+  Reply = (catch dump_frames(File, Reader, Writer)),
+  io:format("~p:~p~n", [Reply, erlang:get_stacktrace()]).
 
-dump_frames(File, Reader, Writer, Transcoder) ->
+dump_frames(File, Reader, Writer) ->
   case file:read(File, 188) of
     {ok, <<16#47, Bin/binary>>} ->
       LastDTS = get(last_dts),
@@ -36,15 +36,16 @@ dump_frames(File, Reader, Writer, Transcoder) ->
           put(last_dts, DTS),
           % io:format("PES ~p ~p ~p ~p~n", [round(DTS), round(PTS - DTS), size(Body), erlang:crc32(Body)]),
           % io:format("PES ~p ~p~n", [size(Body), erlang:crc32(Body)]),
-          {TC1, Frame} = ems_video:mpeg2_h264(Transcoder, #video_frame{codec = mpeg2video, pts = PTS, dts = DTS, body = Body, content = video}),
-          case Frame of
-            undefined -> ok;
-            #video_frame{} -> flv_writer:write_frame(Frame, Writer)
-          end,
-          
-          dump_frames(File, Reader1, Writer, TC1);
+          case mpegts_reader:decode_pes(Reader1, PES) of
+            {ok, Reader2, Frames} ->
+              % io:format("~p~n", [[{Codec,DTS} || #video_frame{codec = Codec, dts = DTS} <- Frames]]),
+              (catch [flv_writer:write_frame(Frame, Writer) || Frame <- Frames]),
+              dump_frames(File, Reader2, Writer);
+            {ok, Reader2} ->
+              dump_frames(File, Reader2, Writer)                
+          end;
         {ok, Reader1, _} ->
-          dump_frames(File, Reader1, Writer, Transcoder)
+          dump_frames(File, Reader1, Writer)
       end;
     eof -> ok
   end.     

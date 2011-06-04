@@ -101,11 +101,11 @@ encode_h264(#mpeg2_h264{x264 = undefined, mpeg2 = Mpeg2} = State, #video_frame{d
     body = Config
   },
   ems_video:yuv_x264(Encoder, YUV),
-  {State#mpeg2_h264{x264 = Encoder}, Frame};
+  {State#mpeg2_h264{x264 = Encoder}, [Frame]};
 
 encode_h264(#mpeg2_h264{x264 = Encoder} = State, #video_frame{codec = yuv} = YUV) ->
   case ems_video:yuv_x264(Encoder, YUV) of
-    ok -> {State, undefined};
+    ok -> {State, []};
     {ok, Flavor, DTS, PTS, H264} ->
       Frame = #video_frame{
         content = video,
@@ -116,7 +116,7 @@ encode_h264(#mpeg2_h264{x264 = Encoder} = State, #video_frame{codec = yuv} = YUV
         body = H264
       },
       % io:format("H264: ~p ~p~n", [DTS, PTS - DTS]),
-      {State, Frame}
+      {State, [Frame]}
   end.
   
   
