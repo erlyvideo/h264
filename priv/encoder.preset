@@ -1,0 +1,21 @@
+partitions i8x8 i4x4 p8x8 b8x8
+chroma-me true
+me hex
+subq 6
+me-range 16
+keyint 250
+min-keyint 25
+ip-factor 1.41
+qcomp 0.6
+qmin 10
+qmax 51
+qpstep 4
+frameref 2
+direct-pred 3
+trellis 0
+weight-b true
+8x8dct true
+fast-pskip true
+fps 25
+bframes 3
+bitrate 500000
