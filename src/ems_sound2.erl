@@ -27,16 +27,19 @@ load_nif(false) ->
   encoder,
   options,
   encoder_bytes,
+  encoder_samples,
   buffer = <<>>,
   writer,
   start_dts,
   counter = 0,
   sample_rate,
-  sound
+  sound,
+  decoder_config
 }).
 
 mp2_aac(undefined, #video_frame{body = Body, dts = DTS} = Frame) ->
   {ok, #mp3_frame{samples = RawSamples, sample_rate = SampleRate, channels = Channels}, _} = mp3:read(Body),
+  io:format("Inited MP3: ~p ~p ~p~n", [RawSamples, SampleRate, Channels]),
   {ok, Decoder} = init_mpg123(<<RawSamples:32/little, SampleRate:32/little, Channels:32/little>>),
   {ok, Encoder, Config} = init_faac(<<SampleRate:32/little, Channels:32/little>>),
   SamplesPerFrame = 1024,
@@ -46,17 +49,25 @@ mp2_aac(undefined, #video_frame{body = Body, dts = DTS} = Frame) ->
       _ -> stereo
     end, bit16, rate44
   },
-  Transcoder = #transcoder{decoder = Decoder, encoder = Encoder, encoder_bytes = SamplesPerFrame*2*Channels, sound = Sound, start_dts = DTS, sample_rate = SampleRate},
+  Transcoder = #transcoder{decoder = Decoder, encoder = Encoder, encoder_bytes = SamplesPerFrame*2*Channels, encoder_samples = SamplesPerFrame, 
+                           sound = Sound, start_dts = DTS, sample_rate = SampleRate},
   ConfigFrame = Frame#video_frame{codec = aac, flavor = config, body = Config, sound = Sound},
   {TC1, Frames} = mp2_aac(Transcoder, Frame),
-  {TC1, [ConfigFrame|Frames]};
-  
-  
+  case Frames of
+    [] ->
+      {TC1#transcoder{decoder_config = ConfigFrame}, []};
+    _ ->  
+      {TC1, [ConfigFrame|Frames]}
+  end;
+
   
 
 mp2_aac(#transcoder{} = Transcoder, #video_frame{codec = mpeg2audio, body = Body}) ->
   mp2_aac(Transcoder, Body, []).
 
+
+mp2_aac(#transcoder{decoder_config = ConfigFrame} = TC, <<>>, [#video_frame{dts = DTS}|_] = Acc) when ConfigFrame =/= undefined ->
+  {TC#transcoder{decoder_config = undefined}, [ConfigFrame#video_frame{dts = DTS, pts = DTS}|Acc]};
 
 mp2_aac(#transcoder{} = TC, <<>>, Acc) ->
   {TC, Acc};
@@ -86,7 +97,7 @@ encode(#transcoder{encoder_bytes = Length, encoder = Encoder} = TC, Bin, Acc) ->
       {TC#transcoder{buffer = Bin}, lists:reverse(Acc)}
   end.
 
-output_frame(#transcoder{encoder_bytes = Length, counter = Counter, sample_rate = SampleRate, start_dts = StartDTS, sound = Sound} = TC, AAC) ->
+output_frame(#transcoder{encoder_samples = Samples, counter = Counter, sample_rate = SampleRate, start_dts = StartDTS, sound = Sound} = TC, AAC) ->
   DTS = StartDTS + Counter*1000/SampleRate,
   Frame = #video_frame{
     content = audio,
@@ -97,7 +108,7 @@ output_frame(#transcoder{encoder_bytes = Length, counter = Counter, sample_rate 
     pts = DTS,
     body = AAC
   },
-  {TC#transcoder{counter = Counter + Length div 2}, Frame}.
+  {TC#transcoder{counter = Counter + Samples}, Frame}.
 
 
 

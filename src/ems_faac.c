@@ -50,13 +50,13 @@ init_faac(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   faacConfig = faacEncGetCurrentConfiguration(faac);
   
   faacConfig->mpegVersion   = MPEG4;
-  faacConfig->aacObjectType = MAIN;
-  faacConfig->allowMidside  = 1;
-  faacConfig->useTns        = 0;
-  faacConfig->quantqual     = 100;
-  // faacConfig->outputFormat  = opt.format;
+  faacConfig->aacObjectType = LOW;
+  // faacConfig->allowMidside  = 1;
+  // faacConfig->useTns        = 0;
+  // faacConfig->quantqual     = 100;
+  faacConfig->outputFormat  = 0; // 0 for RAW, 1 for ADTS
   faacConfig->inputFormat   = FAAC_INPUT_16BIT;
-  faacConfig->bandWidth     = 0;
+  // faacConfig->bandWidth     = 0;
   
   if(!faacEncSetConfiguration(faac, faacConfig)) {
     fprintf(stderr, "Couldn't set config\r\n");
@@ -99,7 +99,12 @@ pcm_faac(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   enif_alloc_binary(res->max_bytes, &aac);
   
   out_bytes = faacEncEncode(res->faac, (int32_t *)pcm.data, pcm.size/2, aac.data, aac.size);
-  enif_realloc_binary(&aac, out_bytes);
-  return enif_make_binary(env, &aac);
+  if(out_bytes == 0) {
+    enif_release_binary(&aac);
+    return enif_make_atom(env, "undefined");
+  } else {
+    enif_realloc_binary(&aac, out_bytes);
+    return enif_make_binary(env, &aac);
+  }
 }
 

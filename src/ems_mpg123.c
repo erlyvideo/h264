@@ -81,7 +81,7 @@ mp3_pcm(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   
   mh = mpg123->mh;
 
-  enif_alloc_binary(mpg123->samples*2, &pcm);
+  enif_alloc_binary(mpg123->samples*2*mpg123->channels, &pcm);
   
   res = mpg123_decode(mh, mp3.data, mp3.size, pcm.data, pcm.size, &converted);
   enif_realloc_binary(&pcm, converted);
