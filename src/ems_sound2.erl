@@ -28,7 +28,8 @@ load_nif(false) ->
   options,
   encoder_bytes,
   encoder_samples,
-  buffer = <<>>,
+  in_buffer = <<>>,
+  pcm_buffer = <<>>,
   writer,
   start_dts,
   counter = 0,
@@ -72,15 +73,24 @@ mp2_aac(#transcoder{decoder_config = ConfigFrame} = TC, <<>>, [#video_frame{dts 
 mp2_aac(#transcoder{} = TC, <<>>, Acc) ->
   {TC, Acc};
 
-mp2_aac(#transcoder{decoder = Decoder, buffer = Buf} = TC, Body, Acc) ->
-  {ok, #mp3_frame{body = MP3}, Rest} = mp3:read(Body),
-  PCM = mp3_pcm(Decoder, MP3),
-  Bin = case Buf of
-    <<>> -> PCM;
-    _ -> <<Buf/binary, PCM/binary>>
+mp2_aac(#transcoder{decoder = Decoder, pcm_buffer = PCMBuf, in_buffer = InBuf} = TC, Body, Acc) ->
+  ToDecode = case InBuf of
+    <<>> -> Body;
+    _ -> <<InBuf/binary, Body/binary>>
   end,
-  {TC1, Frames} = encode(TC, Bin, []),
-  mp2_aac(TC1, Rest, Acc++Frames).
+  
+  case mp3:read(ToDecode) of
+    {ok, #mp3_frame{body = MP3}, Rest} ->
+      PCM = mp3_pcm(Decoder, MP3),
+      Bin = case PCMBuf of
+        <<>> -> PCM;
+        _ -> <<PCMBuf/binary, PCM/binary>>
+      end,
+      {TC1, Frames} = encode(TC, Bin, []),
+      mp2_aac(TC1, Rest, Acc++Frames);
+    {more, _} ->
+      mp2_aac(TC#transcoder{in_buffer = ToDecode}, <<>>, Acc)
+  end.
 
 
 encode(#transcoder{encoder_bytes = Length, encoder = Encoder} = TC, Bin, Acc) ->
@@ -94,7 +104,7 @@ encode(#transcoder{encoder_bytes = Length, encoder = Encoder} = TC, Bin, Acc) ->
           encode(TC1, Rest, [Frame|Acc])
       end;
     _ ->
-      {TC#transcoder{buffer = Bin}, lists:reverse(Acc)}
+      {TC#transcoder{pcm_buffer = Bin}, lists:reverse(Acc)}
   end.
 
 output_frame(#transcoder{encoder_samples = Samples, counter = Counter, sample_rate = SampleRate, start_dts = StartDTS, sound = Sound} = TC, AAC) ->

@@ -17,7 +17,8 @@
 -record(mpeg2_h264, {
   mpeg2,
   x264,
-  buffer = <<>>
+  buffer = <<>>,
+  config_frame
 }).
 
 on_load() ->
@@ -89,7 +90,8 @@ unpack_config(<<>>, H264) ->
 
 
 encode_h264(#mpeg2_h264{x264 = undefined, mpeg2 = Mpeg2} = State, #video_frame{dts = DTS, codec = yuv} = YUV) ->
-  {ok, Encoder, NALS} = init_x264([{width, mpeg2_getopt(Mpeg2, width)}, {height, mpeg2_getopt(Mpeg2, height)}]),
+  {ok, EncoderConfig} = file:read_file(code:lib_dir(h264,priv)++"/encoder.preset"),
+  {ok, Encoder, NALS} = init_x264([{width, mpeg2_getopt(Mpeg2, width)}, {height, mpeg2_getopt(Mpeg2, height)}, {config, EncoderConfig}, {preset, "fast"}]),
   Config = unpack_config(NALS),
   
   Frame = #video_frame{
@@ -101,9 +103,9 @@ encode_h264(#mpeg2_h264{x264 = undefined, mpeg2 = Mpeg2} = State, #video_frame{d
     body = Config
   },
   ems_video:yuv_x264(Encoder, YUV),
-  {State#mpeg2_h264{x264 = Encoder}, [Frame]};
+  {State#mpeg2_h264{x264 = Encoder, config_frame = Frame}, []};
 
-encode_h264(#mpeg2_h264{x264 = Encoder} = State, #video_frame{codec = yuv} = YUV) ->
+encode_h264(#mpeg2_h264{x264 = Encoder, config_frame = Config} = State, #video_frame{codec = yuv} = YUV) ->
   case ems_video:yuv_x264(Encoder, YUV) of
     ok -> {State, []};
     {ok, Flavor, DTS, PTS, H264} ->
@@ -116,7 +118,12 @@ encode_h264(#mpeg2_h264{x264 = Encoder} = State, #video_frame{codec = yuv} = YUV
         body = H264
       },
       % io:format("H264: ~p ~p~n", [DTS, PTS - DTS]),
-      {State, [Frame]}
+      case Config of
+        undefined -> 
+          {State, [Frame]};
+        _ ->
+          {State#mpeg2_h264{config_frame = undefined}, [Config#video_frame{dts = DTS, pts = DTS}, Frame]}
+      end    
   end.
   
   
