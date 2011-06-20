@@ -16,8 +16,6 @@ typedef struct {
   uint32_t user_data_len;
   int width;
   int height;
-  uint8_t *pending_buffer;
-  uint32_t pending_length;
 } Mpeg2;
 
 
@@ -27,7 +25,7 @@ mpeg2_destructor(ErlNifEnv* env, void* obj)
 {
   Mpeg2 *mpeg2;
   mpeg2 = obj;
-  // mpeg2_decore(mpeg2->dec_handle, XVID_DEC_DESTROY, NULL, NULL);
+  mpeg2_close(mpeg2->dec);
 }
 
 
@@ -43,9 +41,8 @@ init_mpeg2(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   mpeg2 = (Mpeg2 *)enif_alloc_resource(mpeg2_resource, sizeof(Mpeg2));
   
   // mpeg2_accel(MPEG2_ACCEL_DETECT);
-  mpeg2dec = mpeg2_init();
-  mpeg2->info = mpeg2_info(mpeg2dec);
-  mpeg2->dec = mpeg2dec;
+  mpeg2->dec = mpeg2_init();
+  mpeg2->info = mpeg2_info(mpeg2->dec);
   // mpeg2_custom_fbuf(mpeg2dec, 1); // enable DR1
   
   return enif_make_resource(env, mpeg2);
@@ -159,12 +156,6 @@ mpeg2_raw(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     	{
         char *name = state == STATE_SLICE ? "slice" : state == STATE_END ? "end" : "invalid_end";
         
-        // if(mpeg2_getpos(mpeg2dec) > 0) {
-        //   mpeg2_state->pending_length = mpeg2_getpos(mpeg2dec);
-        //   mpeg2_state->pending_buffer = malloc(mpeg2_state->pending_length);
-        //   memcpy(mpeg2_state->pending_buffer, mpeg2_getbuffer(mpeg2dec), mpeg2_state->pending_length);
-        // }
-        // fprintf(stderr, "Slice: %d %s, %d\r\n", state, name, mpeg2_state->info->display_fbuf != NULL);
         if(mpeg2_state->info->display_fbuf) {
           // return enif_make_atom(env, "yuv");
           uint32_t stride_size = mpeg2_state->width*mpeg2_state->height;

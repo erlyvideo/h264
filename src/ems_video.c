@@ -72,7 +72,7 @@ static ErlNifFunc ems_video_funcs[] =
     {"mpeg4_raw", 2, mpeg4_raw},
 #endif /* HAS_XVID */
 #ifdef HAS_X264
-    {"init_x264", 1, init_x264},
+    {"real_init_x264", 1, init_x264},
     {"real_yuv_x264", 3, yuv_x264},
 #endif /* HAS_X264 */
 #ifdef HAS_MPEG2

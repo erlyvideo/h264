@@ -19,3 +19,5 @@ fast-pskip true
 fps 25
 bframes 3
 bitrate 500000
+threads 4
+
