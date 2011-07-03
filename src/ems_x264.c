@@ -115,6 +115,7 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   
   ERL_NIF_TERM opt, opts, *kv, decoder_config;
   int arity;
+  int colorspace = X264_CSP_I420;
   
   unsigned int width = -1, height = -1, fps;
   int bitrate = -1;
@@ -168,6 +169,11 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             if(enif_inspect_binary(env, kv[1], &encoder_config)) {
               has_config = 1;
             }
+          }
+          
+          if(!enif_compare(kv[0], enif_make_atom(env, "colorspace"))) {
+            if(!enif_compare(kv[1], enif_make_atom(env, "yuv420"))) { colorspace = X264_CSP_I420; }
+            if(!enif_compare(kv[1], enif_make_atom(env, "yuv422"))) { colorspace = X264_CSP_I422; }
           }
       }
   }
@@ -225,7 +231,7 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   
   x264->encoder = x264_encoder_open(&x264->param);
   
-  if (x264_picture_alloc(&x264->picture, X264_CSP_I420, width, height) < 0) {
+  if (x264_picture_alloc(&x264->picture, colorspace, width, height) < 0) {
     printf("Couldn't allocate picture for %ux%u\n", width, height);
 	}
 	

@@ -7,25 +7,29 @@ MPEG2 := libmpeg2/*.o
 # vpath %.c libmpeg2
 LIBMPEG2_SRCS = $(wildcard libmpeg2/*.c)
 LIBMPEG2_OBJS = $(LIBMPEG2_SRCS:.c=.o)
+LDFLAGS=""
+ifeq ($(shell uname), Darwin)
+LDFLAGS=$LDFLAGS -undefined dynamic_lookup
+endif
 
 
 all:  ebin/ems_video.so ebin/ems_sound2.so compile
 
 compile:
-	ERL_LIBS=../erlyvideo/apps erl -make
+	ERL_LIBS=../erlyvideo/apps:/opt/erlyvideo/lib erl -make
 
 ebin/ems_video.so: src/ems_video.c src/ems_x264.c src/ems_mpeg2.c libmpeg2_objs
-	gcc -c -o ebin/ems_video.o src/ems_video.c -I $(NIFDIR)
-	gcc -shared -undefined dynamic_lookup -o $@ -lswscale ebin/ems_video.o -g -lx264 -lavutil $(MPEG2)
+	gcc -fPIC -c -o ebin/ems_video.o src/ems_video.c -I $(NIFDIR)
+	gcc -fPIC -shared $LDFLAGS -o $@ -lswscale ebin/ems_video.o -g -lx264 -lavutil $(MPEG2)
 
 ebin/ems_sound2.so: src/ems_sound2.c src/ems_mpg123.c src/ems_faac.c
-	gcc -c -o ebin/ems_sound2.o src/ems_sound2.c -I $(NIFDIR)
-	gcc -shared -undefined dynamic_lookup -o $@ ebin/ems_sound2.o -g -lmpg123 -lfaac
+	gcc -fPIC -c -o ebin/ems_sound2.o src/ems_sound2.c -I $(NIFDIR)
+	gcc -fPIC -shared -undefined dynamic_lookup -o $@ ebin/ems_sound2.o -g -lmpg123 -lfaac
 
 libmpeg2_objs: $(LIBMPEG2_OBJS)
 
 libmpeg2/%.o: libmpeg2/%.c
-	gcc -c -g $< -o $@ #-I${NIFDIR}
+	gcc -fPIC -c -g $< -o $@ #-I${NIFDIR}
 
 
 ebin/readjpeg.o: src/readjpeg.c
