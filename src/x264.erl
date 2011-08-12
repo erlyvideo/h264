@@ -5,6 +5,7 @@
 -export([on_load/0]).
 -include_lib("erlmedia/include/video_frame.hrl").
 
+-export([init/1, encode/3]).
 -export([init_x264/1, yuv_x264/2]).
 
 -define(NIF_STUB, erlang:error(nif_not_loaded_ems_video)).
@@ -17,6 +18,33 @@ on_load() ->
   Load = erlang:load_nif(Path ++ "/ems_video", 0),
   io:format("Load ems_video: ~p~n", [Load]),
   ok.
+
+
+init(Options) ->
+  {ok, X264, Config} = init_x264(Options),
+  VConfig = #video_frame{
+    content = video,
+    flavor = config,
+    codec = h264,
+    pts = 0, 
+    dts = 0,
+    body = Config
+  },
+  {ok, X264, VConfig}.
+
+encode(X264, YUV, PTS) ->
+  case real_yuv_x264(X264, YUV, round(PTS)) of
+    ok -> undefined;
+    {ok, Flavor, PTSEnc, DTSEnc, H264} ->
+      #video_frame{
+        content = video,
+        flavor = Flavor,
+        codec = h264,
+        pts = PTSEnc,
+        dts = DTSEnc,
+        body = H264
+      }
+  end.
 
 
 init_x264(Options) ->
