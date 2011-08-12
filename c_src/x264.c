@@ -368,10 +368,10 @@ unload(ErlNifEnv* env, void* priv)
 
 
 
-static ErlNifFunc ems_video_funcs[] =
+static ErlNifFunc x264_funcs[] =
 {
     {"real_init_x264", 1, init_x264},
     {"real_yuv_x264", 3, yuv_x264}
 };
 
-ERL_NIF_INIT(ems_video, ems_video_funcs, load, reload, upgrade, unload)
+ERL_NIF_INIT(x264, x264_funcs, load, reload, upgrade, unload)

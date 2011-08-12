@@ -15,8 +15,8 @@ on_load() ->
     {error, _} -> "priv";
     Else -> Else
   end,
-  Load = erlang:load_nif(Path ++ "/ems_video", 0),
-  io:format("Load ems_video: ~p~n", [Load]),
+  Load = erlang:load_nif(Path ++ "/x264", 0),
+  io:format("Load x264: ~p~n", [Load]),
   ok.
 
 
