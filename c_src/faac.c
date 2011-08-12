@@ -1,3 +1,10 @@
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+#include "erl_nif.h"
+
+
+
 #include <faac.h>
 
 
@@ -107,4 +114,46 @@ pcm_faac(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_binary(env, &aac);
   }
 }
+
+
+static int
+load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
+{
+  if(!faac_resource) {
+    faac_resource = enif_open_resource_type(env, NULL, "faac_resource", faac_destructor, ERL_NIF_RT_CREATE, NULL);
+  }
+
+  return 0;
+}
+
+static int
+reload(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
+{
+    return 0;
+}
+
+static int
+upgrade(ErlNifEnv* env, void** priv, void** old_priv,
+          ERL_NIF_TERM load_info)
+{
+    return 0;
+}
+
+static void
+unload(ErlNifEnv* env, void* priv)
+{
+    return;
+}
+
+
+
+static ErlNifFunc faac_funcs[] =
+{
+    {"init_faac", 1, init_faac},
+    {"pcm_aac", 2, pcm_faac}
+};
+
+ERL_NIF_INIT(faac, faac_funcs, load, reload, upgrade, unload)
+
+
 

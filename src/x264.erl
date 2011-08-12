@@ -1,4 +1,4 @@
--module(ems_video).
+-module(x264).
 -author('Max Lapshin <max@maxidoors.ru>').
 
 -on_load(on_load/0).
