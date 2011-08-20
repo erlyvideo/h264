@@ -17,7 +17,7 @@ compile:
 	ERL_LIBS=../erlyvideo/apps:/opt/erlyvideo/lib erl -make
 
 priv/x264.so: c_src/x264.c 
-	gcc -fPIC -shared $(LDFLAGS) -o $@ -lswscale c_src/x264.c -I $(NIFDIR) -g -lx264 -lavutil 
+	gcc -fPIC -shared $(LDFLAGS) -o $@ -lswscale c_src/x264.c -Ix264 -I $(NIFDIR) -g -lx264 -Lpriv -lavutil 
 
 priv/faac.so: c_src/faac.c
 	gcc -fPIC -shared $(LDFLAGS) -o $@ c_src/faac.c -I $(NIFDIR) -g -lfaac

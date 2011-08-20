@@ -48,7 +48,13 @@ encode(X264, YUV, PTS) ->
 
 
 init_x264(Options) ->
-  {ok, X264, NALS} = real_init_x264(Options),
+  Cfg = case proplists:get_value(config, Options) of
+    undefined -> Options;
+    Path ->
+      {ok, Data} = file:read_file(Path),
+      lists:keystore(config, 1, Options, {config,Data})
+  end,
+  {ok, X264, NALS} = real_init_x264(Cfg),
   {ok, X264, unpack_config(NALS)}.
 
 real_init_x264(_Options) ->

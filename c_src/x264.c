@@ -12,22 +12,21 @@ ErlNifResourceType* x264_resource;
 
 typedef struct {
   x264_param_t	param;
-	x264_t			*encoder;
+  x264_t			*encoder;
 
-	x264_picture_t	picture;
+  x264_picture_t	picture;
 
-	uint64_t		frame;
+  uint64_t		frame;
   uint64_t    dts_delta;
   uint64_t    base_pts;
   uint8_t     have_seen_pts;
-	uint32_t		level;
+  uint32_t		level;
   uint8_t     *yuv;
   uint32_t    width;
   uint32_t    height;
   struct SwsContext* convertCtx;
 
 
-  uint32_t    bitrate;
   char        preset[256];
   char        tune[256];
 } X264;
@@ -43,7 +42,8 @@ static void encoder_log(void *private, int i_level, const char *format, va_list 
     fmt[len] = '\n';
     fmt[len+1] = 0;
   }
-  vfprintf(stderr, (const char *)(fmt || format), va);
+  //vfprintf(stderr, (const char *)(fmt || format), va);
+  vfprintf(stderr, format, va);
   if(fmt) free(fmt);
 }
 
@@ -58,59 +58,6 @@ x264_destructor(ErlNifEnv* env, void* obj)
   x264_picture_clean(&x264->picture);
 }
 
-static encoder_set_params(x264_param_t *param)
-{
-//	"cabac=yes",
-	param->b_cabac = 1;
-//	"bframes=0",
-	param->i_bframe = 0;
-//	"keyint=125",  -I, --keyint <integer>      Maximum GOP size [250]
-	param->i_keyint_max = 125;
-//	"ref=5",   -r, --ref <integer>         Number of reference frames [3]
-	param->i_frame_reference = 5;
-//	"mixed-refs=yes",
-	param->analyse.b_mixed_references = 1;
-//	"direct=auto", #define X264_DIRECT_PRED_AUTO   3
-	param->analyse.i_direct_mv_pred = X264_DIRECT_PRED_AUTO;
-//	"me=umh", #define X264_ME_UMH                  2
-	param->analyse.i_me_method = X264_ME_UMH;
-//	"merange=24",
-	param->analyse.i_me_range = 24;
-//	"subme=7",
-	param->analyse.i_subpel_refine = 7;
-//	"trellis=2",
-	param->analyse.i_trellis = 2;
-//	"weightb=yes",
-	param->analyse.b_weighted_bipred = 1;
-//	"partitions=all",
-	param->analyse.inter = ~0;
-//	"non-deterministic=yes",
-	param->b_deterministic = 1;
-//	"vbv-maxrate=512",
-	param->rc.i_vbv_max_bitrate = 512;
-//	"vbv-bufsize=9000",
-	param->rc.i_vbv_buffer_size = 900;
-//	"ratetol=1000.0",
-	param->rc.f_rate_tolerance = 1000.0;
-//	"scenecut=60"
-	param->i_scenecut_threshold = 60;
-// from x264.c profile selection
-	param->analyse.b_transform_8x8 = 0;
-	param->i_cqm_preset = X264_CQM_FLAT;
-	
-  param->i_csp = X264_CSP_I420;
-  param->i_level_idc = -1;
-  param->i_fps_num = 10;
-  param->i_fps_den = 1;
-  
-  param->i_slice_max_size = 0;
-  param->i_slice_max_mbs = 0;
-  param->i_slice_count = 0;
-  
-  param->b_annexb = 1;
-  param->pf_log = encoder_log;
-}
-
 
 
 static ERL_NIF_TERM
@@ -122,15 +69,13 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   int arity;
   
   unsigned int width = -1, height = -1, fps;
-  int bitrate = -1;
-  char preset[1024], tune[1024];
   
   ErlNifBinary encoder_config;
   int has_config = 0;
   
   
-  strcpy(preset, "faster");
-  strcpy(tune, "film");
+  strcpy(x264->preset, "faster");
+  strcpy(x264->tune, "film");
   
   if (argc < 1 || !enif_is_list(env, argv[0])) {
     return enif_make_badarg(env);
@@ -147,9 +92,6 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
       if(enif_is_tuple(env, opt)) {
           enif_get_tuple(env, opt, &arity, (const ERL_NIF_TERM **)&kv);
           if(arity < 2) continue;
-          if(!enif_compare(kv[0], enif_make_atom(env, "bitrate"))) {
-              enif_get_int(env, kv[1], &x264->bitrate); 
-          }
           if(!enif_compare(kv[0], enif_make_atom(env, "preset"))) {
               if(enif_is_list(env, kv[1])) {
                   enif_get_string(env, kv[1], x264->preset, sizeof(x264->preset), ERL_NIF_LATIN1);
@@ -178,53 +120,66 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   }
   
   
-  x264_param_default(&x264->param);
-  x264->param.i_width = width;
-  x264->param.i_height = height;
-  x264->param.i_sps_id = 1;
-  
-  x264->width = width;
-  x264->height = height;
-  
-  encoder_set_params(&x264->param);
-  
   x264_param_default_preset(&x264->param, x264->preset, x264->tune);
   x264->param.i_width = width;
   x264->param.i_height = height;
-  // x264->param.rc.i_vbv_buffer_size = 10;
+  x264->param.i_sps_id = 1;
   x264->param.b_annexb = 0;
+  
+  x264->param.i_csp = X264_CSP_I420;
+  x264->param.i_level_idc = -1;
+  x264->param.pf_log = encoder_log;
+  x264->width = width;
+  x264->height = height;
+  //x264_param_default(&x264->param);
+  
   
   if(has_config) {
     char *key, *value;
     int i;
-    char *ptr = (char *)malloc(encoder_config.size+1);
+    char *config_copy, *ptr;
+    ptr = config_copy = (char *)malloc(encoder_config.size+5);
     memcpy(ptr, encoder_config.data, encoder_config.size);
-    ptr[encoder_config.size] = 0;
+    ptr[encoder_config.size] = '\n';
+    ptr[encoder_config.size+1] = 0;
     while(*ptr) {
       key = ptr;
-      for(i = 0; ptr[i]; i++) {
-        if(ptr[i] == ' ') {
-          ptr[i] = 0;
-          i++;
-          value = ptr+i;
+
+      while(*ptr && isspace(*ptr)) ptr++; 
+      if(!*ptr) break;
+      value = NULL;
+
+      for(;*ptr;) {
+        ptr++;
+        if(*ptr == ' ') {
+          *ptr = 0;
+          ptr++;
+          value = ptr;
           break;
         }
       }
-      if(!ptr[i]) break;
       
-      for(;ptr[i];i++) {
-        if(ptr[i] == '\r' && ptr[i+1] == '\n') {
-          ptr[i] = 0;
-          ptr += i+2;
-        }
-        if(ptr[i] == '\n') {
-          ptr[i] = 0;
-          ptr += i+1;
+      
+      while(*ptr && isspace(*ptr)) ptr++; 
+      if(!*ptr) break;
+
+      for(;*ptr;) {
+        ptr++;
+        if(*ptr == '\n' || *ptr == '\r') {
+          *ptr = 0;
+          ptr++;
+          break;
         }
       }
-      
-      // fprintf(stderr, "X264: %s => %s\r\n", key, value);
-      x264_param_parse(&x264->param, key, value);
+ 
+      if(key[0] == '#') continue;
+
+      if(x264_param_parse(&x264->param, key, value)) {
+        fprintf(stderr, "invalid param: %s = %s\n", key, value);
+        exit(1);
+      } else {
+        fprintf(stderr, "set %s = %s\r\n", key, value);
+      }
     }
   }
   
