@@ -10,6 +10,8 @@
 
 ErlNifResourceType* x264_resource;
 
+void *h264_encode(void *);
+
 typedef struct {
   x264_param_t	param;
   x264_t			*encoder;
@@ -21,12 +23,20 @@ typedef struct {
   uint64_t    base_pts;
   uint8_t     have_seen_pts;
   uint32_t		level;
-  uint8_t     *yuv;
   uint32_t    width;
   uint32_t    height;
   struct SwsContext* convertCtx;
-
-
+  ErlNifTid   tid;
+  ErlNifMutex*        lock;
+  ErlNifCond*         cond;
+  ErlNifPid owner_pid;
+  
+  int          has_yuv;
+  ErlNifBinary yuv;
+  ErlNifSInt64 pts;
+  
+  
+  
   char        preset[256];
   char        tune[256];
 } X264;
@@ -65,7 +75,7 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   X264 *x264;
   
-  ERL_NIF_TERM opt, opts, *kv, decoder_config;
+  ERL_NIF_TERM opt, opts, *kv;
   int arity;
   
   unsigned int width = -1, height = -1, fps;
@@ -104,11 +114,11 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
           }
 
           if(!enif_compare(kv[0], enif_make_atom(env, "width"))) {
-            enif_get_int(env, kv[1], &width);
+            enif_get_uint(env, kv[1], &width);
           }
 
           if(!enif_compare(kv[0], enif_make_atom(env, "height"))) {
-            enif_get_int(env, kv[1], &height);
+            enif_get_uint(env, kv[1], &height);
           }
 
           if(!enif_compare(kv[0], enif_make_atom(env, "config"))) {
@@ -136,7 +146,6 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   
   if(has_config) {
     char *key, *value;
-    int i;
     char *config_copy, *ptr;
     ptr = config_copy = (char *)malloc(encoder_config.size+5);
     memcpy(ptr, encoder_config.data, encoder_config.size);
@@ -209,8 +218,15 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     memcpy(config.data + len, nals[i].p_payload, nals[i].i_payload);
     len += nals[i].i_payload;
   }
+  
+  x264->lock = enif_mutex_create("x264-lock");
+  x264->cond = enif_cond_create("x264-cond");
+  x264->has_yuv = 0;
+  enif_self(env, &x264->owner_pid);
+  enif_thread_create("x264-thread", &x264->tid, h264_encode, x264, NULL);
   return enif_make_tuple3(env, enif_make_atom(env, "ok"), enif_make_resource(env, x264), enif_make_binary(env, &config));
 }
+
 
 
 
@@ -218,46 +234,75 @@ static ERL_NIF_TERM
 yuv_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   X264 *x264;
-  ErlNifBinary yuv, out, h264;
-  ErlNifSInt64 pts;
   
   if(!enif_get_resource(env, argv[0], x264_resource, (void **)&x264)) {
     return enif_make_badarg(env);
   }
+  
+  enif_mutex_lock(x264->lock);
 
-  if(!enif_inspect_binary(env, argv[1], &yuv)) {
+  if(!enif_inspect_binary(env, argv[1], &x264->yuv)) {
     return enif_make_badarg(env);
   }
 
-  if(!enif_get_int64(env, argv[2], &pts)) {
+  if(!enif_get_int64(env, argv[2], &x264->pts)) {
     fprintf(stderr, "Invalid PTS\r\n");
     return enif_make_badarg(env);
   }
   
-  if(!x264->have_seen_pts) {
-    x264->have_seen_pts = 1;
-    x264->base_pts = pts;
-  }
+  x264->has_yuv = 1;
+  enif_cond_signal(x264->cond);
+  enif_mutex_unlock(x264->lock);
+  return enif_make_atom(env, "wait");
+}  
+ 
+
+void run_h264_encode(X264 *x264);
+ 
+void *h264_encode(void *arg) {
+  X264 *x264 = (X264 *)arg;
+  enif_keep_resource(x264);
   
-  pts -= x264->base_pts;
+  while(1) {
+    run_h264_encode(x264);
+  }
+}
+
+void run_h264_encode(X264 *x264) {
+  
+  while(!x264->has_yuv) {
+    enif_cond_wait(x264->cond, x264->lock);
+  }
+
+  ErlNifBinary h264;
+  x264->has_yuv = 0;
+  
+  // if(!x264->have_seen_pts) {
+  //   x264->have_seen_pts = 1;
+  //   // x264->base_pts = x264->pts;
+  //   x264->base_pts = 0;
+  // }
+  
+  // x264->pts -= x264->base_pts;
   
   uint32_t plane_size = x264->width*x264->height;
-  if(plane_size*3/2 != yuv.size) {
-    fprintf(stderr, "Invalid YUV size: %lu, %u\r\n", yuv.size, plane_size*3/2);
-    return enif_make_badarg(env);
+  if(plane_size*3/2 != x264->yuv.size) {
+    fprintf(stderr, "Invalid YUV size: %lu, %u\r\n", x264->yuv.size, plane_size*3/2);
+    return;
+    // return enif_make_badarg(env);
   }
   
-  x264->picture.img.plane[0] = yuv.data;
+  x264->picture.img.plane[0] = x264->yuv.data;
   x264->picture.img.i_stride[0] = x264->width;
   
-  x264->picture.img.plane[1] = yuv.data+plane_size;
+  x264->picture.img.plane[1] = x264->yuv.data+plane_size;
   x264->picture.img.i_stride[1] = x264->width/2;
   
-  x264->picture.img.plane[2] = yuv.data + plane_size*5/4;
+  x264->picture.img.plane[2] = x264->yuv.data + plane_size*5/4;
   x264->picture.img.i_stride[2] = x264->width/2;
   
-  x264->picture.i_dts = pts;
-	x264->picture.i_pts = pts;
+  x264->picture.i_dts = x264->pts;
+	x264->picture.i_pts = x264->pts;
 	x264->picture.i_type = X264_TYPE_AUTO;
 	x264->picture.i_qpplus1 = 0;
 
@@ -269,27 +314,52 @@ yuv_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   len = x264_encoder_encode(x264->encoder, &nals, &count, &x264->picture, &output);
   // fprintf(stderr, "H264: %llu %lld\r\n", output.i_dts, output.i_pts - output.i_dts);
   if(len == -1) {
-    return enif_make_badarg(env);
+    // return enif_make_badarg(env);
+    return;
   }
+  
+  ErlNifEnv* env = enif_alloc_env();
+  ERL_NIF_TERM message;
   
   if(len == 0) {
-    return enif_make_atom(env, "ok");
+    // return enif_make_atom(env, "ok");
+    message = enif_make_atom(env, "ok");
+  } else {
+  	enif_alloc_binary(len, &h264);
+    len = 0;
+
+    for(i = 0; i < count; i++) {
+      memcpy(h264.data + len, nals[i].p_payload, nals[i].i_payload);
+      len += nals[i].i_payload;
+    }
+    
+    // if(!x264->have_seen_pts) {
+    //   x264->have_seen_pts = 1;
+    //   fprintf(stderr, "First output: %ld, %ld, %ld\r\n", output.i_dts, output.i_pts, x264->base_pts);
+    // }
+    
+
+    if(output.i_dts < 0 && !x264->base_pts) {
+      x264->base_pts = output.i_pts - output.i_dts;
+      fprintf(stderr, "Correcting output pts for: %d\r\n", x264->base_pts);
+    }
+
+    message = enif_make_tuple4(env, 
+      enif_make_atom(env, output.b_keyframe ? "keyframe" : "frame"), 
+      enif_make_int64(env, output.i_dts+x264->base_pts), 
+      enif_make_int64(env, output.i_pts+x264->base_pts), 
+      enif_make_binary(env, &h264));
+    
   }
   
-	enif_alloc_binary(len, &h264);
-  len = 0;
   
-  for(i = 0; i < count; i++) {
-    memcpy(h264.data + len, nals[i].p_payload, nals[i].i_payload);
-    len += nals[i].i_payload;
-  }
-  
-  return enif_make_tuple5(env, 
-    enif_make_atom(env, "ok"), 
-    enif_make_atom(env, output.b_keyframe ? "keyframe" : "frame"), 
-    enif_make_int64(env, output.i_dts+x264->base_pts), 
-    enif_make_int64(env, output.i_pts+x264->base_pts), 
-    enif_make_binary(env, &h264));
+  enif_send(NULL, &x264->owner_pid, env, 
+    enif_make_tuple3(env, 
+      enif_make_atom(env, "ok"),
+      enif_make_resource(env, x264),
+      message));
+  enif_release_binary(&h264);
+  enif_free_env(env);
 }
 
 static int

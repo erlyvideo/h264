@@ -33,9 +33,18 @@ init(Options) ->
   {ok, X264, VConfig}.
 
 encode(X264, YUV, PTS) ->
-  case real_yuv_x264(X264, YUV, round(PTS)) of
+  T1 = erlang:now(),
+  Reply0 = real_yuv_x264(X264, YUV, round(PTS)),
+  Reply1 = case Reply0 of
+    wait ->
+      receive
+        {ok, X264, R} -> R
+      end;
+    _ -> Reply0
+  end,    
+  case Reply1 of
     ok -> undefined;
-    {ok, Flavor, PTSEnc, DTSEnc, H264} ->
+    {Flavor, DTSEnc, PTSEnc, H264} ->
       #video_frame{
         content = video,
         flavor = Flavor,
