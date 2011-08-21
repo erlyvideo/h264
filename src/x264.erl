@@ -38,6 +38,7 @@ encode(X264, YUV, PTS) ->
   Reply0 = real_yuv_x264(X264, YUV, round(PTS)),
   Reply1 = case Reply0 of
     wait ->
+      erlang:yield(),
       receive
         {ok, X264, R} ->
           % D = timer:now_diff(erlang:now(),T1),
@@ -45,7 +46,7 @@ encode(X264, YUV, PTS) ->
           % put(x264_sum_dts, Sum),
           % Abs = timer:now_diff(erlang:now(), get(x264_start_dts)),
           % if
-          %   D > 5000 -> io:format("X264 encoding ~p ms, ~p sum, ~p total~n", [D div 1000, Sum div 1000, Abs div 1000]);
+          %   D > 5000 -> io:format("X264 encoding ~8B ms, ~8B sum, ~8B total, ~2B%~n", [D div 1000, Sum div 1000, Abs div 1000, Sum*100 div Abs]);
           %   true -> ok
           % end,
           R

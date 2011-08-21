@@ -4,6 +4,16 @@
 #include <string.h>
 #include "erl_nif.h"
 
+
+#define _GNU_SOURCE             /* See feature_test_macros(7) */
+#define __USE_GNU
+#include <sys/types.h>
+#include <linux/unistd.h>
+#include <sys/syscall.h>
+#include <sched.h>
+pid_t gettid() { return syscall( __NR_gettid );}
+
+
 #include <x264.h>
 
 #include <libswscale/swscale.h>
@@ -11,6 +21,7 @@
 ErlNifResourceType* x264_resource;
 
 void *h264_encode(void *);
+
 
 typedef struct {
   x264_param_t	param;
@@ -192,6 +203,8 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     }
   }
   
+  fprintf(stderr, "X264 threads: %d\r\n", x264->param.i_threads);
+  
   x264->encoder = x264_encoder_open(&x264->param);
   
   if (x264_picture_alloc(&x264->picture, X264_CSP_I420, width, height) < 0) {
@@ -261,6 +274,19 @@ void run_h264_encode(X264 *x264);
  
 void *h264_encode(void *arg) {
   X264 *x264 = (X264 *)arg;
+  
+  cpu_set_t p_aff;
+  memset( &p_aff, 0, sizeof(p_aff) );
+  CPU_SET(0, &p_aff);
+  sched_setaffinity(0, sizeof(p_aff), &p_aff );
+  
+  int i;
+  for(i = 0; i <= 4; i++) {
+    memset( &p_aff, 0, sizeof(p_aff) );
+    CPU_SET(i, &p_aff);
+    sched_setaffinity(gettid() - 2 - i, sizeof(p_aff), &p_aff );
+  }
+  
   enif_keep_resource(x264);
   
   while(1) {
@@ -276,7 +302,7 @@ void run_h264_encode(X264 *x264) {
 
   ErlNifBinary h264;
   x264->has_yuv = 0;
-  
+
   // if(!x264->have_seen_pts) {
   //   x264->have_seen_pts = 1;
   //   // x264->base_pts = x264->pts;
