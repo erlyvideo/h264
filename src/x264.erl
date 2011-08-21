@@ -34,11 +34,21 @@ init(Options) ->
 
 encode(X264, YUV, PTS) ->
   T1 = erlang:now(),
+  case get(x264_start_dts) of undefined -> put(x264_start_dts, T1), put(x264_sum_dts, 0); _ -> ok end,
   Reply0 = real_yuv_x264(X264, YUV, round(PTS)),
   Reply1 = case Reply0 of
     wait ->
       receive
-        {ok, X264, R} -> R
+        {ok, X264, R} ->
+          % D = timer:now_diff(erlang:now(),T1),
+          % Sum = get(x264_sum_dts) + D,
+          % put(x264_sum_dts, Sum),
+          % Abs = timer:now_diff(erlang:now(), get(x264_start_dts)),
+          % if
+          %   D > 5000 -> io:format("X264 encoding ~p ms, ~p sum, ~p total~n", [D div 1000, Sum div 1000, Abs div 1000]);
+          %   true -> ok
+          % end,
+          R
       end;
     _ -> Reply0
   end,    
