@@ -43,8 +43,10 @@ typedef struct {
   ErlNifPid owner_pid;
   
   int          has_yuv;
-  ErlNifBinary yuv;
+  ERL_NIF_TERM yuv;
   ErlNifSInt64 pts;
+  
+  ErlNifEnv*  env;
   
   
   
@@ -232,6 +234,7 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     len += nals[i].i_payload;
   }
   
+  
   x264->lock = enif_mutex_create("x264-lock");
   x264->cond = enif_cond_create("x264-cond");
   x264->has_yuv = 0;
@@ -247,14 +250,19 @@ static ERL_NIF_TERM
 yuv_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   X264 *x264;
+  ErlNifBinary yuv;
   
   if(!enif_get_resource(env, argv[0], x264_resource, (void **)&x264)) {
     return enif_make_badarg(env);
   }
   
+  if(x264->has_yuv) {
+    return enif_make_atom(env, "busy");
+  }
+  
   enif_mutex_lock(x264->lock);
-
-  if(!enif_inspect_binary(env, argv[1], &x264->yuv)) {
+  
+  if(!enif_is_binary(env, argv[1])) {
     return enif_make_badarg(env);
   }
 
@@ -263,6 +271,8 @@ yuv_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_badarg(env);
   }
   
+  x264->env = enif_alloc_env();
+  x264->yuv = enif_make_copy(x264->env, argv[1]);
   x264->has_yuv = 1;
   enif_cond_signal(x264->cond);
   enif_mutex_unlock(x264->lock);
@@ -300,9 +310,11 @@ void run_h264_encode(X264 *x264) {
     enif_cond_wait(x264->cond, x264->lock);
   }
 
-  ErlNifBinary h264;
-  x264->has_yuv = 0;
-
+  ErlNifBinary h264, yuv;
+  
+  enif_inspect_binary(x264->env, x264->yuv, &yuv);
+  
+  
   // if(!x264->have_seen_pts) {
   //   x264->have_seen_pts = 1;
   //   // x264->base_pts = x264->pts;
@@ -312,19 +324,19 @@ void run_h264_encode(X264 *x264) {
   // x264->pts -= x264->base_pts;
   
   uint32_t plane_size = x264->width*x264->height;
-  if(plane_size*3/2 != x264->yuv.size) {
-    fprintf(stderr, "Invalid YUV size: %lu, %u\r\n", x264->yuv.size, plane_size*3/2);
+  if(plane_size*3/2 != yuv.size) {
+    fprintf(stderr, "Invalid YUV size: %lu, %u\r\n", yuv.size, plane_size*3/2);
     return;
     // return enif_make_badarg(env);
   }
   
-  x264->picture.img.plane[0] = x264->yuv.data;
+  x264->picture.img.plane[0] = yuv.data;
   x264->picture.img.i_stride[0] = x264->width;
   
-  x264->picture.img.plane[1] = x264->yuv.data+plane_size;
+  x264->picture.img.plane[1] = yuv.data+plane_size;
   x264->picture.img.i_stride[1] = x264->width/2;
   
-  x264->picture.img.plane[2] = x264->yuv.data + plane_size*5/4;
+  x264->picture.img.plane[2] = yuv.data + plane_size*5/4;
   x264->picture.img.i_stride[2] = x264->width/2;
   
   x264->picture.i_dts = x264->pts;
@@ -339,10 +351,15 @@ void run_h264_encode(X264 *x264) {
   
   len = x264_encoder_encode(x264->encoder, &nals, &count, &x264->picture, &output);
   // fprintf(stderr, "H264: %llu %lld\r\n", output.i_dts, output.i_pts - output.i_dts);
+  
+  enif_free_env(x264->env);
+  x264->has_yuv = 0;
+  
   if(len == -1) {
     // return enif_make_badarg(env);
     return;
   }
+  
   
   ErlNifEnv* env = enif_alloc_env();
   ERL_NIF_TERM message;
@@ -386,6 +403,7 @@ void run_h264_encode(X264 *x264) {
       message));
   enif_release_binary(&h264);
   enif_free_env(env);
+  
 }
 
 static int
