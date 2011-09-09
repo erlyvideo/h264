@@ -3,3 +3,5 @@ test
 out.264
 priv
 ebin
+tmproot
+*.deb

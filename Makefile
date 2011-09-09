@@ -1,3 +1,4 @@
+include version.mk
 NIFDIR := `erl -eval 'io:format("~s", [code:lib_dir(erts,include)])' -s init stop -noshell| sed s'/erlang\/lib\//erlang\//'`
 NIF_FLAGS := `ruby -rrbconfig -e 'puts Config::CONFIG["LDSHARED"]'` -O3 -fPIC -fno-common -Wall
 
@@ -23,4 +24,22 @@ priv/faac.so: c_src/faac.c
 	gcc -fPIC -shared $(LDFLAGS) -o $@ c_src/faac.c -I $(NIFDIR) -g -lfaac
 
 clean:
-	@rm -f test ebin/*.o ebin/*.so 
+	@rm -f test ebin/*.o priv/*.so ebin/*.so 
+
+
+package: compile
+	rm -rf tmproot
+	mkdir -p tmproot/opt/erlyvideo/lib/h264/
+	cp -r priv ebin src tmproot/opt/erlyvideo/lib/h264/
+	cp encoder.preset tmproot/opt/erlyvideo/lib/h264/priv/
+	cd tmproot && \
+	fpm -s dir -t deb -n erly-h264 -d libfaac0 -d libswscale2 -d libavutil51 -d libx264-116 -v $(VERSION) -m "Max Lapshin <max@maxidoors.ru>" opt 
+	mv tmproot/*.deb .
+
+upload_package: 
+	scp *$(VERSION)* erlyhub@git.erlyvideo.org:/apps/erlyvideo/debian/public/binary
+	ssh erlyhub@git.erlyvideo.org "cd /apps/erlyvideo/debian ; ./update"
+
+
+.PHONY: package upload_package
+
