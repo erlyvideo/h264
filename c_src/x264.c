@@ -97,9 +97,6 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   int has_config = 0;
   
   
-  strcpy(x264->preset, "faster");
-  strcpy(x264->tune, "film");
-  
   if (argc < 1 || !enif_is_list(env, argv[0])) {
     return enif_make_badarg(env);
   }
@@ -108,6 +105,9 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   
   x264 = (X264 *)enif_alloc_resource(x264_resource, sizeof(X264));
   memset(x264, 0, sizeof(X264));
+  strcpy(x264->preset, "faster");
+  strcpy(x264->tune, "film");
+  
   
   
   opts = argv[0];
