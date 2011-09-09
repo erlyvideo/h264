@@ -37,8 +37,8 @@ package: compile
 	mv tmproot/*.deb .
 
 upload_package: 
-	scp *$(VERSION)* erlyhub@git.erlyvideo.org:/apps/erlyvideo/debian/public/binary
-	ssh erlyhub@git.erlyvideo.org "cd /apps/erlyvideo/debian ; ./update"
+	scp *$(VERSION)* erlyhub@git.erlyvideo.org:/apps/erlyvideo/debian/public/transcoding
+	ssh erlyhub@git.erlyvideo.org "cd /apps/erlyvideo/debian ; ./update transcoding"
 
 
 .PHONY: package upload_package
