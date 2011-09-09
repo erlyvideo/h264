@@ -29,9 +29,9 @@ clean:
 
 package: compile
 	rm -rf tmproot
-	mkdir -p tmproot/opt/erlyvideo/lib/h264/
-	cp -r priv ebin src tmproot/opt/erlyvideo/lib/h264/
-	cp encoder.preset tmproot/opt/erlyvideo/lib/h264/priv/
+	mkdir -p tmproot/opt/erlyvideo/lib/h264-$(VERSION)/
+	cp -r priv ebin src tmproot/opt/erlyvideo/lib/h264-$(VERSION)/
+	cp encoder.preset tmproot/opt/erlyvideo/lib/h264-$(VERSION)/priv/
 	cd tmproot && \
 	fpm -s dir -t deb -n erly-h264 -d libfaac0 -d libswscale2 -d libavutil51 -d libx264-116 -v $(VERSION) -m "Max Lapshin <max@maxidoors.ru>" opt 
 	mv tmproot/*.deb .
