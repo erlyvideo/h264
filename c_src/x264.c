@@ -196,7 +196,12 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
  
       if(key[0] == '#') continue;
 
-      if(x264_param_parse(&x264->param, key, value)) {
+      int ret;
+      if(!strcmp(key, "profile"))
+        ret = x264_param_apply_profile(&x264->param, value);
+      else
+        ret = x264_param_parse(&x264->param, key, value);
+      if(ret) {
         fprintf(stderr, "invalid param: %s = %s\n", key, value);
         exit(1);
       } else {
