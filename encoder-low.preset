@@ -1,0 +1,21 @@
+me hex
+profile baseline
+cabac no
+level 30
+direct auto
+weightp 0
+subme 3
+merange 15
+keyint 150
+qpmin 22
+qpmax 51
+frameref 4
+bframes 0
+bitrate 700
+fps 20
+vbv-maxrate 1000
+vbv-bufsize 2048
+threads 4
+trellis 2
+rc-lookahead 20
+

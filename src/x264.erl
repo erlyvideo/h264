@@ -71,7 +71,9 @@ init_x264(Options) ->
   Cfg = case proplists:get_value(config, Options) of
     undefined -> Options;
     Path ->
-      {ok, Data} = file:read_file(Path),
+      {ok, F, RealPath} = file:path_open([".", code:lib_dir(h264,priv), "/etc/publisher/"], Path, [read]),
+      file:close(F),
+      {ok, Data} = file:read_file(RealPath),
       lists:keystore(config, 1, Options, {config,Data})
   end,
   {ok, X264, NALS} = real_init_x264(Cfg),
