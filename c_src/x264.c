@@ -137,6 +137,8 @@ init_x264(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
           if(!enif_compare(kv[0], enif_make_atom(env, "config"))) {
             if(enif_inspect_binary(env, kv[1], &encoder_config)) {
               has_config = 1;
+            } else {
+              return enif_make_badarg(env);
             }
           }
       }

@@ -72,9 +72,10 @@ init_x264(Options) ->
     undefined -> Options;
     Path ->
       {ok, F, RealPath} = file:path_open([".", code:lib_dir(h264,priv), "/etc/publisher/"], Path, [read]),
+      io:format("Loading x264 config file from ~p~n", [RealPath]),
       file:close(F),
       {ok, Data} = file:read_file(RealPath),
-      lists:keystore(config, 1, Options, {config,Data})
+      lists:keystore(config, 1, lists:ukeysort(1,Options), {config,Data})
   end,
   {ok, X264, NALS} = real_init_x264(Cfg),
   {ok, X264, unpack_config(NALS)}.
