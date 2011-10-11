@@ -33,7 +33,7 @@ package: compile
 	cp -r priv ebin src tmproot/opt/erlyvideo/lib/h264-$(VERSION)/
 	cp *.preset tmproot/opt/erlyvideo/lib/h264-$(VERSION)/priv/
 	cd tmproot && \
-	fpm -s dir -t deb -n erly-h264 -d libfaac0 -d libswscale2 -d libavutil51 -d libx264-116 -v $(VERSION) -m "Max Lapshin <max@maxidoors.ru>" opt 
+	fpm -s dir -t deb -n erly-h264 -d libfaac0 -d libswscale2 -d libavutil51 -d libx264 -v $(VERSION) -m "Max Lapshin <max@maxidoors.ru>" opt 
 	mv tmproot/*.deb .
 
 upload_package: 
